@@ -4,9 +4,9 @@ import { SURFACES } from './vehicle/config'
 import type { Vehicle } from './vehicle/vehicle'
 
 const TINTS: Record<Surface, THREE.Color> = {
-  gravel: new THREE.Color(0.8, 0.64, 0.46),
-  grass: new THREE.Color(0.56, 0.5, 0.34),
-  tarmac: new THREE.Color(0.82, 0.82, 0.8),
+  gravel: new THREE.Color(0.66, 0.5, 0.34),
+  grass: new THREE.Color(0.46, 0.42, 0.28),
+  tarmac: new THREE.Color(0.72, 0.72, 0.7),
 }
 
 export class DustSystem {
@@ -55,9 +55,11 @@ export class DustSystem {
         void main() {
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mv;
-          gl_PointSize = aSize * uScale / max(-mv.z, 0.1);
+          float depth = max(-mv.z, 0.1);
+          gl_PointSize = min(aSize * uScale / depth, uScale * 0.35);
           vColor = aColor;
-          vAlpha = aAlpha;
+          // Fade particles that are about to fill the screen
+          vAlpha = aAlpha * smoothstep(1.5, 6.0, depth);
         }
       `,
       fragmentShader: /* glsl */ `
@@ -132,7 +134,7 @@ export class DustSystem {
 
       const age = 1 - Math.max(0, this.life[i]) / this.maxLife[i]
       this.sizes[i] = this.startSize[i] * (1 + age * 5)
-      this.alphas[i] = Math.min(1, age * 8) * (1 - age) * 0.42
+      this.alphas[i] = Math.min(1, age * 8) * (1 - age) * 0.32
     }
 
     const geo = this.points.geometry

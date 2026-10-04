@@ -1,5 +1,6 @@
 import './style.css'
 import * as THREE from 'three'
+import { autopilot } from './game/autopilot'
 import { CameraRig } from './game/camera'
 import { DustSystem } from './game/dust'
 import { formatTime, Hud } from './game/hud'
@@ -16,6 +17,7 @@ const overlay = document.querySelector<HTMLDivElement>('#loading')!
 const overlayStatus = overlay.querySelector<HTMLDivElement>('.overlay-status')!
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const coarse = window.matchMedia('(pointer: coarse)').matches
+const demo = new URLSearchParams(window.location.search).has('demo')
 
 function fail(message: string): never {
   overlay.classList.add('error')
@@ -29,7 +31,7 @@ function createRenderer(): THREE.WebGLRenderer {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, coarse ? 1.5 : 2))
     renderer.setSize(window.innerWidth, window.innerHeight)
     renderer.shadowMap.enabled = true
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    renderer.shadowMap.type = THREE.PCFShadowMap
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 1.1
     renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -168,10 +170,12 @@ async function main() {
 
   const HOLD: DriveControls = { throttle: 0, brake: 0, steer: 0, handbrake: 1 }
   const STOP: DriveControls = { throttle: 0, brake: 1, steer: 0, handbrake: 0 }
-  const clock = new THREE.Clock()
+  const timer = new THREE.Timer()
+  timer.connect(document)
 
-  renderer.setAnimationLoop(() => {
-    const dt = Math.min(clock.getDelta(), 0.05)
+  renderer.setAnimationLoop((timestamp) => {
+    timer.update(timestamp)
+    const dt = Math.min(timer.getDelta(), 0.05)
     const input = readInput(dt)
 
     if (input.restart) restart()
@@ -191,7 +195,8 @@ async function main() {
       }
     }
 
-    const controls = phase === 'racing' ? input : phase === 'countdown' ? HOLD : STOP
+    const driver = demo ? autopilot(stage.track, vehicle, race.trackIndex) : input
+    const controls = phase === 'racing' ? driver : phase === 'countdown' ? HOLD : STOP
     accumulator += dt
     let steps = 0
     while (accumulator >= PHYSICS_STEP && steps < MAX_STEPS_PER_FRAME) {

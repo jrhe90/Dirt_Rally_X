@@ -46,7 +46,7 @@ export class CameraRig {
 
     if (this.mode === 'bonnet') {
       const q = vehicle.quaternion
-      this.camera.position.copy(pos).add(new THREE.Vector3(0, 0.78, 0.35).applyQuaternion(q))
+      this.camera.position.copy(pos).add(new THREE.Vector3(0, 0.62, 0.95).applyQuaternion(q))
       this.camera.quaternion.copy(q).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI))
       this.smoothY = pos.y
       return

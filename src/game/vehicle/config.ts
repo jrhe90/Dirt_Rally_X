@@ -36,7 +36,7 @@ export const CAR = {
   finalDrive: 5.3,
   drivetrainEfficiency: 0.85,
   rearTorqueSplit: 0.6,
-  engineBrakeTorque: 55,
+  engineBrakeTorque: 30,
   /** [rpm, Nm] */
   torqueCurve: [
     [1000, 200],
@@ -68,7 +68,7 @@ export type SurfaceGrip = {
 export const SURFACES: Record<Surface, SurfaceGrip> = {
   gravel: { grip: 0.95, slide: 0.78, rolling: 0.02, dust: 1 },
   tarmac: { grip: 1.18, slide: 0.98, rolling: 0.012, dust: 0.08 },
-  grass: { grip: 0.7, slide: 0.56, rolling: 0.06, dust: 0.45 },
+  grass: { grip: 0.78, slide: 0.62, rolling: 0.045, dust: 0.45 },
 }
 
 export function torqueAt(rpm: number): number {
