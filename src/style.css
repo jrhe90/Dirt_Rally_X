@@ -1,11 +1,10 @@
 :root {
   --dust: #c9a06a;
-  --earth: #3d2a1a;
-  --clay: #8b5a2b;
-  --sand: #e8d5b0;
-  --sky-top: #f0a060;
+  --sand: #f0e6d2;
+  --accent: #e8743a;
   --ink: #1a120c;
-  --hud: rgba(26, 18, 12, 0.72);
+  --panel: rgba(22, 15, 10, 0.68);
+  --line: rgba(240, 230, 210, 0.16);
 }
 
 * {
@@ -22,6 +21,9 @@ body {
   background: var(--ink);
   color: var(--sand);
   font-family: "IBM Plex Sans", sans-serif;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 #game {
@@ -39,123 +41,353 @@ body {
 
 .brand {
   position: absolute;
-  top: 1.25rem;
-  left: 1.5rem;
+  top: 1.1rem;
+  left: 1.4rem;
   font-family: "Bebas Neue", sans-serif;
-  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-size: clamp(1.8rem, 4.5vw, 3rem);
   letter-spacing: 0.08em;
-  color: var(--sand);
-  text-shadow: 0 2px 18px rgba(196, 120, 58, 0.45);
   line-height: 1;
+  text-shadow: 0 2px 18px rgba(232, 116, 58, 0.5);
 }
 
-.meters {
+.panel {
   position: absolute;
-  top: 1.25rem;
-  right: 1.5rem;
-  display: flex;
-  gap: 1.25rem;
-  background: var(--hud);
+  background: var(--panel);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(232, 213, 176, 0.18);
-  padding: 0.75rem 1.1rem;
+  border: 1px solid var(--line);
   border-radius: 4px;
+}
+
+.label {
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  color: var(--dust);
+}
+
+.value {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.6rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.value.big {
+  font-size: 2.6rem;
+}
+
+.timing {
+  top: 1.1rem;
+  right: 1.4rem;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.25rem 1.4rem;
+  padding: 0.7rem 1rem 0.8rem;
 }
 
 .meter {
   display: grid;
   gap: 0.15rem;
-  min-width: 4.5rem;
   text-align: right;
 }
 
-.meter .label {
-  font-size: 0.65rem;
-  letter-spacing: 0.14em;
-  color: var(--dust);
-  opacity: 0.85;
+.progress,
+.rev {
+  grid-column: 1 / -1;
+  height: 4px;
+  background: rgba(240, 230, 210, 0.12);
+  border-radius: 2px;
+  overflow: hidden;
 }
 
-#speed,
-#time,
-#lap {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 1.65rem;
-  letter-spacing: 0.04em;
-  line-height: 1;
+#progress-fill,
+#rev-fill {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: var(--accent);
 }
 
-.meter .unit {
+#rev-fill {
+  background: linear-gradient(90deg, #e8d5b0, var(--accent));
+  transition: background 0.1s;
+}
+
+#rev-fill.redline {
+  background: linear-gradient(90deg, var(--accent), #ff3020);
+}
+
+.dash {
+  right: 1.4rem;
+  bottom: 1.4rem;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: end;
+  gap: 0.35rem 1.4rem;
+  padding: 0.75rem 1rem 0.7rem;
+  min-width: 13rem;
+}
+
+.speedo {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.unit {
   font-size: 0.7rem;
+  letter-spacing: 0.12em;
   color: var(--dust);
+}
+
+.gearbox {
+  display: grid;
+  justify-items: end;
+}
+
+.rev {
+  height: 6px;
+}
+
+.surface {
+  grid-column: 1 / -1;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  color: var(--dust);
+}
+
+.surface[data-surface="tarmac"] {
+  color: #b8c0c8;
+}
+
+.surface[data-surface="grass"] {
+  color: #a8c070;
+}
+
+.surface[data-surface="air"] {
+  color: var(--accent);
+}
+
+.message-wrap {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  transition: opacity 0.3s ease;
+}
+
+.message-wrap.hidden {
+  opacity: 0;
 }
 
 .message {
-  position: absolute;
-  top: 42%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   font-family: "Bebas Neue", sans-serif;
-  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-size: clamp(2.6rem, 9vw, 5.5rem);
   letter-spacing: 0.12em;
-  text-align: center;
-  color: var(--sand);
-  text-shadow: 0 4px 28px rgba(0, 0, 0, 0.55);
-  transition: opacity 0.35s ease;
+  line-height: 1;
+  text-shadow: 0 4px 28px rgba(0, 0, 0, 0.6);
 }
 
-.message.hidden {
-  opacity: 0;
+.message-sub {
+  margin-top: 0.5rem;
+  font-size: clamp(0.85rem, 2.4vw, 1.05rem);
+  color: var(--sand);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
 }
 
 .controls {
   position: absolute;
-  bottom: 1.25rem;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.8rem;
-  color: rgba(232, 213, 176, 0.75);
-  background: var(--hud);
-  padding: 0.55rem 0.9rem;
+  bottom: 1.4rem;
+  left: 1.4rem;
+  font-size: 0.75rem;
+  color: rgba(240, 230, 210, 0.75);
+  background: var(--panel);
+  padding: 0.5rem 0.8rem;
   border-radius: 4px;
-  border: 1px solid rgba(232, 213, 176, 0.12);
-  white-space: nowrap;
+  border: 1px solid var(--line);
+  max-width: calc(100% - 19rem);
 }
 
 kbd {
   display: inline-block;
-  min-width: 1.35rem;
-  padding: 0.1rem 0.35rem;
-  margin: 0 0.1rem;
-  border: 1px solid rgba(232, 213, 176, 0.35);
+  min-width: 1.3rem;
+  padding: 0.05rem 0.3rem;
+  margin: 0 0.05rem;
+  border: 1px solid rgba(240, 230, 210, 0.35);
   border-radius: 3px;
   font-family: inherit;
-  font-size: 0.72rem;
-  color: var(--sand);
-  background: rgba(61, 42, 26, 0.8);
+  font-size: 0.7rem;
   text-align: center;
+  background: rgba(61, 42, 26, 0.8);
 }
 
-@media (max-width: 720px) {
-  .meters {
-    top: auto;
-    bottom: 4rem;
-    right: 0.75rem;
-    left: 0.75rem;
-    justify-content: space-between;
-    gap: 0.5rem;
+#touch {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.touch-group {
+  position: absolute;
+  display: flex;
+  gap: 0.75rem;
+  pointer-events: auto;
+}
+
+.touch-group.left {
+  left: 1rem;
+  bottom: 1.2rem;
+}
+
+.touch-group.right {
+  right: 1rem;
+  bottom: 1.2rem;
+  align-items: flex-end;
+}
+
+.touch-group.top {
+  top: 4.2rem;
+  left: 1rem;
+  gap: 0.5rem;
+}
+
+#touch button {
+  width: 4.6rem;
+  height: 4.6rem;
+  border-radius: 50%;
+  border: 1px solid rgba(240, 230, 210, 0.3);
+  background: rgba(22, 15, 10, 0.55);
+  color: var(--sand);
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.3rem;
+  letter-spacing: 0.06em;
+  touch-action: none;
+}
+
+#touch button.active {
+  background: rgba(232, 116, 58, 0.75);
+  border-color: var(--accent);
+}
+
+#touch button.gas {
+  width: 5.4rem;
+  height: 5.4rem;
+}
+
+#touch button.hb {
+  width: 3.8rem;
+  height: 3.8rem;
+  font-size: 1.1rem;
+}
+
+#touch button.small {
+  width: auto;
+  height: 2.2rem;
+  padding: 0 0.9rem;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1rem;
+  background: radial-gradient(ellipse at center, #3d2a1a 0%, #1a120c 70%);
+  transition: opacity 0.5s ease;
+}
+
+.overlay.done {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.overlay-title {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: clamp(3rem, 10vw, 6rem);
+  letter-spacing: 0.1em;
+  line-height: 1;
+}
+
+.overlay-status {
+  color: var(--dust);
+  letter-spacing: 0.06em;
+  text-align: center;
+  max-width: 28rem;
+  padding: 0 1.5rem;
+}
+
+.overlay.error .overlay-status {
+  color: #ffb08a;
+}
+
+.overlay.error .spinner {
+  display: none;
+}
+
+.spinner {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 3px solid rgba(240, 230, 210, 0.15);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (pointer: coarse) {
+  #touch {
+    display: block;
   }
 
   .controls {
-    bottom: 0.75rem;
-    font-size: 0.68rem;
-    width: calc(100% - 1.5rem);
-    text-align: center;
-    white-space: normal;
+    display: none;
   }
 
+  .dash {
+    bottom: auto;
+    top: 6.6rem;
+    right: 1rem;
+    min-width: 10rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .value.big {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 720px) {
   .brand {
-    top: 0.85rem;
-    left: 0.85rem;
+    top: 0.8rem;
+    left: 1rem;
+  }
+
+  .timing {
+    top: 0.8rem;
+    right: 1rem;
+    gap: 0.2rem 0.9rem;
+    padding: 0.5rem 0.75rem 0.6rem;
+  }
+
+  .value {
+    font-size: 1.3rem;
+  }
+
+  .controls {
+    max-width: calc(100% - 2.8rem);
+    bottom: 9rem;
   }
 }

@@ -1,234 +1,246 @@
 import './style.css'
 import * as THREE from 'three'
-import { Car } from './game/car'
+import { CameraRig } from './game/camera'
 import { DustSystem } from './game/dust'
+import { formatTime, Hud } from './game/hud'
 import { initInput, readInput } from './game/input'
-import { Track } from './game/track'
+import { createStage, PHYSICS_STEP, type Stage } from './game/stage'
+import { CarModel } from './game/vehicle/carModel'
+import type { DriveControls } from './game/vehicle/vehicle'
 
+const COUNTDOWN = 3
+const MAX_STEPS_PER_FRAME = 8
+const FLIPPED_HINT_DELAY = 2
+
+const overlay = document.querySelector<HTMLDivElement>('#loading')!
+const overlayStatus = overlay.querySelector<HTMLDivElement>('.overlay-status')!
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
-const speedEl = document.querySelector('#speed')!
-const timeEl = document.querySelector('#time')!
-const lapEl = document.querySelector('#lap')!
-const messageEl = document.querySelector('#message')!
+const coarse = window.matchMedia('(pointer: coarse)').matches
 
-const renderer = new THREE.WebGLRenderer({
-  canvas,
-  antialias: true,
-  powerPreference: 'high-performance',
-})
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-renderer.setSize(window.innerWidth, window.innerHeight)
-renderer.shadowMap.enabled = true
-renderer.shadowMap.type = THREE.PCFSoftShadowMap
-renderer.toneMapping = THREE.ACESFilmicToneMapping
-renderer.toneMappingExposure = 1.15
-renderer.outputColorSpace = THREE.SRGBColorSpace
-
-const scene = new THREE.Scene()
-scene.background = new THREE.Color(0xf0a060)
-scene.fog = new THREE.FogExp2(0xe8a868, 0.0055)
-
-// Sky dome gradient via large sphere
-{
-  const skyGeo = new THREE.SphereGeometry(400, 32, 16)
-  const skyMat = new THREE.ShaderMaterial({
-    side: THREE.BackSide,
-    depthWrite: false,
-    uniforms: {
-      topColor: { value: new THREE.Color(0xf5b070) },
-      midColor: { value: new THREE.Color(0xe89060) },
-      bottomColor: { value: new THREE.Color(0xc4783a) },
-    },
-    vertexShader: `
-      varying vec3 vWorldPos;
-      void main() {
-        vec4 world = modelMatrix * vec4(position, 1.0);
-        vWorldPos = world.xyz;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform vec3 topColor;
-      uniform vec3 midColor;
-      uniform vec3 bottomColor;
-      varying vec3 vWorldPos;
-      void main() {
-        float h = normalize(vWorldPos).y;
-        vec3 col = mix(bottomColor, midColor, smoothstep(-0.2, 0.25, h));
-        col = mix(col, topColor, smoothstep(0.2, 0.85, h));
-        gl_FragColor = vec4(col, 1.0);
-      }
-    `,
-  })
-  scene.add(new THREE.Mesh(skyGeo, skyMat))
+function fail(message: string): never {
+  overlay.classList.add('error')
+  overlayStatus.textContent = message
+  throw new Error(message)
 }
 
-const camera = new THREE.PerspectiveCamera(
-  60,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  500,
-)
-
-// Lighting — late-afternoon rally stage
-const sun = new THREE.DirectionalLight(0xffd2a0, 2.4)
-sun.position.set(40, 55, 20)
-sun.castShadow = true
-sun.shadow.mapSize.set(2048, 2048)
-sun.shadow.camera.near = 10
-sun.shadow.camera.far = 180
-sun.shadow.camera.left = -80
-sun.shadow.camera.right = 80
-sun.shadow.camera.top = 80
-sun.shadow.camera.bottom = -80
-sun.shadow.bias = -0.0003
-scene.add(sun)
-scene.add(new THREE.AmbientLight(0xc4a070, 0.85))
-scene.add(new THREE.HemisphereLight(0xffc090, 0x6a8a40, 0.7))
-
-const track = new Track(scene)
-const car = new Car(track)
-scene.add(car.mesh)
-
-const dust = new DustSystem()
-scene.add(dust.points)
-
-// Headlight cones (simple spots)
-const headL = new THREE.SpotLight(0xffe0b0, 1.2, 40, 0.35, 0.4)
-const headR = new THREE.SpotLight(0xffe0b0, 1.2, 40, 0.35, 0.4)
-headL.castShadow = false
-headR.castShadow = false
-scene.add(headL, headR, headL.target, headR.target)
-
-initInput()
-
-let raceTime = 0
-let racing = false
-let countdown = 3.2
-let bestTime = Number.POSITIVE_INFINITY
-let wasReset = false
-
-const camPos = new THREE.Vector3()
-const camLook = new THREE.Vector3()
-
-function showMessage(text: string, hideAfterMs?: number): void {
-  messageEl.textContent = text
-  messageEl.classList.remove('hidden')
-  if (hideAfterMs != null) {
-    window.setTimeout(() => messageEl.classList.add('hidden'), hideAfterMs)
+function createRenderer(): THREE.WebGLRenderer {
+  try {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: !coarse, powerPreference: 'high-performance' })
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, coarse ? 1.5 : 2))
+    renderer.setSize(window.innerWidth, window.innerHeight)
+    renderer.shadowMap.enabled = true
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 1.1
+    renderer.outputColorSpace = THREE.SRGBColorSpace
+    return renderer
+  } catch {
+    return fail('WebGL is not available in this browser, so the stage cannot be drawn.')
   }
 }
 
-function formatTime(t: number): string {
-  const m = Math.floor(t / 60)
-  const s = t % 60
-  return `${m}:${s.toFixed(2).padStart(5, '0')}`
-}
+function buildScene(stage: Stage) {
+  const scene = new THREE.Scene()
+  const fogColor = new THREE.Color(0xe6a874)
+  scene.background = fogColor
+  scene.fog = new THREE.FogExp2(fogColor, 0.0042)
 
-function updateHud(): void {
-  const kmh = Math.round(Math.abs(car.speed) * 3.6)
-  speedEl.textContent = String(kmh)
-  timeEl.textContent = formatTime(raceTime)
-  lapEl.textContent = `${Math.min(car.lap, 3)} / 3`
-}
-
-function placeCamera(dt: number): void {
-  const forward = new THREE.Vector3(Math.sin(car.heading), 0, Math.cos(car.heading))
-  const desired = car.mesh.position
-    .clone()
-    .addScaledVector(forward, -8.5)
-    .add(new THREE.Vector3(0, 3.2, 0))
-
-  // Look ahead through the corner
-  const look = car.mesh.position
-    .clone()
-    .addScaledVector(forward, 10)
-    .add(new THREE.Vector3(0, 1.2, 0))
-
-  const lerp = 1 - Math.exp(-5 * dt)
-  camPos.lerp(desired, lerp)
-  camLook.lerp(look, lerp)
-  camera.position.copy(camPos)
-  camera.lookAt(camLook)
-
-  // Headlights follow car
-  const right = new THREE.Vector3(forward.z, 0, -forward.x)
-  headL.position.copy(car.mesh.position).addScaledVector(right, -0.45).add(new THREE.Vector3(0, 0.6, 0)).addScaledVector(forward, 1.5)
-  headR.position.copy(car.mesh.position).addScaledVector(right, 0.45).add(new THREE.Vector3(0, 0.6, 0)).addScaledVector(forward, 1.5)
-  headL.target.position.copy(car.mesh.position).addScaledVector(forward, 20)
-  headR.target.position.copy(car.mesh.position).addScaledVector(forward, 20)
-  headL.target.updateMatrixWorld()
-  headR.target.updateMatrixWorld()
-
-  // Keep sun shadow near car
-  sun.position.set(
-    car.mesh.position.x + 40,
-    car.mesh.position.y + 55,
-    car.mesh.position.z + 20,
+  const sky = new THREE.Mesh(
+    new THREE.SphereGeometry(700, 32, 16),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      fog: false,
+      uniforms: {
+        top: { value: new THREE.Color(0x6f9ac8) },
+        mid: { value: new THREE.Color(0xf0c090) },
+        horizon: { value: new THREE.Color(0xe6a874) },
+      },
+      vertexShader: /* glsl */ `
+        varying vec3 vDir;
+        void main() {
+          vDir = normalize(position);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform vec3 top;
+        uniform vec3 mid;
+        uniform vec3 horizon;
+        varying vec3 vDir;
+        void main() {
+          float h = vDir.y;
+          vec3 col = mix(horizon, mid, smoothstep(0.0, 0.18, h));
+          col = mix(col, top, smoothstep(0.15, 0.7, h));
+          gl_FragColor = vec4(col, 1.0);
+          #include <colorspace_fragment>
+        }
+      `,
+    }),
   )
-  sun.target.position.copy(car.mesh.position)
-  sun.target.updateMatrixWorld()
+  scene.add(sky)
+
+  const sun = new THREE.DirectionalLight(0xffd6a8, 2.6)
+  sun.castShadow = true
+  sun.shadow.mapSize.set(coarse ? 1024 : 2048, coarse ? 1024 : 2048)
+  sun.shadow.camera.near = 1
+  sun.shadow.camera.far = 160
+  sun.shadow.camera.left = -45
+  sun.shadow.camera.right = 45
+  sun.shadow.camera.top = 45
+  sun.shadow.camera.bottom = -45
+  sun.shadow.bias = -0.0004
+  sun.shadow.normalBias = 0.03
+  scene.add(sun, sun.target)
+  scene.add(new THREE.HemisphereLight(0xffd8b0, 0x5a6a38, 0.9))
+  scene.add(new THREE.AmbientLight(0xc4a070, 0.35))
+
+  scene.add(stage.terrain.createMesh())
+  scene.add(stage.track.createMeshes())
+  scene.add(stage.scenery.createMeshes())
+
+  return { scene, sun, sky }
 }
 
-function resetRace(): void {
-  car.reset()
-  raceTime = 0
-  racing = false
-  countdown = 3.2
-  showMessage('3')
-  camPos.copy(car.mesh.position).add(new THREE.Vector3(0, 4, -10))
-  camLook.copy(car.mesh.position)
-}
+async function main() {
+  const renderer = createRenderer()
 
-resetRace()
-
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight
-  camera.updateProjectionMatrix()
-  renderer.setSize(window.innerWidth, window.innerHeight)
-})
-
-const clock = new THREE.Clock()
-
-function tick(): void {
-  const dt = Math.min(clock.getDelta(), 0.05)
-  const input = readInput()
-
-  if (input.reset && !wasReset) {
-    resetRace()
+  let stage: Stage
+  try {
+    stage = await createStage()
+  } catch (err) {
+    console.error(err)
+    fail('The physics engine failed to start. Try reloading the page or using a recent desktop browser.')
   }
-  wasReset = input.reset
 
-  if (!racing && !car.finished) {
-    countdown -= dt
-    if (countdown > 2) showMessage('3')
-    else if (countdown > 1) showMessage('2')
-    else if (countdown > 0) showMessage('1')
-    else {
-      racing = true
-      showMessage('GO', 700)
+  const { world, vehicle, race, terrain } = stage
+  const { scene, sun, sky } = buildScene(stage)
+  const car = new CarModel()
+  scene.add(car.group)
+  const dust = new DustSystem(coarse ? 700 : 1800)
+  scene.add(dust.points)
+
+  const rig = new CameraRig(window.innerWidth / window.innerHeight, terrain)
+  const hud = new Hud()
+  initInput(document.querySelector('#touch'))
+
+  const resize = () => {
+    const w = window.innerWidth
+    const h = window.innerHeight
+    renderer.setSize(w, h)
+    rig.camera.aspect = w / h
+    rig.camera.updateProjectionMatrix()
+    dust.setViewport(h * renderer.getPixelRatio(), rig.camera.fov)
+  }
+  window.addEventListener('resize', resize)
+  resize()
+
+  type Phase = 'countdown' | 'racing' | 'finished'
+  let phase: Phase = 'countdown'
+  let countdown = COUNTDOWN
+  let accumulator = 0
+  let flippedFor = 0
+  let lastCount = -1
+
+  const placeCar = (pose: { position: THREE.Vector3; yaw: number }) => {
+    vehicle.reset(pose.position, pose.yaw)
+    car.sync(vehicle)
+    rig.snap(vehicle)
+  }
+
+  const restart = () => {
+    race.reset()
+    placeCar(race.startPose())
+    phase = 'countdown'
+    countdown = COUNTDOWN
+    lastCount = -1
+  }
+
+  const recover = () => {
+    if (phase === 'finished') return restart()
+    placeCar(race.recoveryPose(vehicle.position))
+    flippedFor = 0
+    hud.hide()
+  }
+
+  restart()
+  overlay.classList.add('done')
+
+  const HOLD: DriveControls = { throttle: 0, brake: 0, steer: 0, handbrake: 1 }
+  const STOP: DriveControls = { throttle: 0, brake: 1, steer: 0, handbrake: 0 }
+  const clock = new THREE.Clock()
+
+  renderer.setAnimationLoop(() => {
+    const dt = Math.min(clock.getDelta(), 0.05)
+    const input = readInput(dt)
+
+    if (input.restart) restart()
+    else if (input.recover) recover()
+    if (input.cycleCamera) rig.cycle()
+
+    if (phase === 'countdown') {
+      countdown -= dt
+      const n = Math.ceil(countdown)
+      if (n !== lastCount && n > 0) {
+        hud.show(String(n))
+        lastCount = n
+      }
+      if (countdown <= 0) {
+        phase = 'racing'
+        hud.show('GO', '', 700)
+      }
     }
-  }
 
-  if (racing && !car.finished) {
-    car.update(dt, input)
-    raceTime += dt
-  } else if (car.finished) {
-    car.update(dt, { throttle: 0, brake: 0, steer: 0, handbrake: false, reset: false })
-    if (raceTime < bestTime) bestTime = raceTime
-    showMessage(`STAGE CLEAR\n${formatTime(raceTime)}`)
-  } else {
-    // Countdown — hold still but allow camera settle
-    car.update(0, { throttle: 0, brake: 0, steer: 0, handbrake: false, reset: false })
-  }
+    const controls = phase === 'racing' ? input : phase === 'countdown' ? HOLD : STOP
+    accumulator += dt
+    let steps = 0
+    while (accumulator >= PHYSICS_STEP && steps < MAX_STEPS_PER_FRAME) {
+      vehicle.step(PHYSICS_STEP, controls)
+      world.step()
+      accumulator -= PHYSICS_STEP
+      steps++
+    }
+    if (steps === MAX_STEPS_PER_FRAME) accumulator = 0
 
-  dust.emit(car.mesh.position, car.heading, car.speed, car.slip, dt)
-  dust.update(dt)
-  placeCamera(dt)
-  updateHud()
+    const pos = vehicle.position
+    race.update(dt, pos, phase === 'racing')
 
-  renderer.render(scene, camera)
-  requestAnimationFrame(tick)
+    if (phase === 'racing' && race.finished) {
+      phase = 'finished'
+      hud.show('STAGE CLEAR', `${formatTime(race.time)} · press T or RESET to run it again`)
+    }
+
+    if (phase === 'racing') {
+      const flipped = vehicle.up.y < 0.3 && vehicle.velocity.length() < 3
+      flippedFor = flipped ? flippedFor + dt : 0
+      if (flippedFor > FLIPPED_HINT_DELAY && flippedFor - dt <= FLIPPED_HINT_DELAY) {
+        hud.show('STUCK?', 'Press R or RESET to get back on the road')
+      }
+      if (pos.y < terrain.heightAt(pos.x, pos.z) - 4) recover()
+    }
+
+    car.sync(vehicle)
+    dust.emitFromVehicle(vehicle, dt)
+    dust.update(dt)
+    rig.update(dt, vehicle)
+    dust.setViewport(window.innerHeight * renderer.getPixelRatio(), rig.camera.fov)
+
+    sun.position.set(pos.x + 50, pos.y + 70, pos.z + 30)
+    sun.target.position.copy(pos)
+    sky.position.copy(rig.camera.position)
+
+    hud.update({
+      speedKmh: vehicle.velocity.length() * 3.6,
+      gear: vehicle.gear,
+      rpm: vehicle.rpm,
+      time: race.time,
+      lap: race.lap,
+      lapProgress: race.lapProgress,
+      surface: vehicle.surface,
+    })
+
+    renderer.render(scene, rig.camera)
+  })
 }
 
-requestAnimationFrame(tick)
+main()

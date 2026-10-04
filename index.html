@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Dirt Rally — Three.js</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -13,30 +13,69 @@
     />
   </head>
   <body>
+    <canvas id="game"></canvas>
+
     <div id="hud">
       <div class="brand">DIRT RALLY</div>
-      <div class="meters">
+
+      <div class="panel timing">
         <div class="meter">
-          <span class="label">SPEED</span>
-          <span id="speed">0</span>
-          <span class="unit">km/h</span>
-        </div>
-        <div class="meter">
-          <span class="label">TIME</span>
-          <span id="time">0:00.00</span>
+          <span class="label">STAGE TIME</span>
+          <span id="time" class="value">0:00.00</span>
         </div>
         <div class="meter">
           <span class="label">LAP</span>
-          <span id="lap">1 / 3</span>
+          <span id="lap" class="value">1 / 3</span>
         </div>
+        <div class="progress"><div id="progress-fill"></div></div>
       </div>
-      <div id="message" class="message hidden"></div>
+
+      <div class="panel dash">
+        <div class="speedo">
+          <span id="speed" class="value big">0</span>
+          <span class="unit">KM/H</span>
+        </div>
+        <div class="gearbox">
+          <span class="label">GEAR</span>
+          <span id="gear" class="value big">1</span>
+        </div>
+        <div class="rev"><div id="rev-fill"></div></div>
+        <span id="surface" class="surface" data-surface="gravel">GRAVEL</span>
+      </div>
+
+      <div class="message-wrap hidden">
+        <div id="message" class="message"></div>
+        <div id="message-sub" class="message-sub"></div>
+      </div>
+
       <div class="controls">
-        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows ·
-        <kbd>Space</kbd> handbrake · <kbd>R</kbd> reset
+        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive · <kbd>Space</kbd> handbrake · <kbd>C</kbd> camera ·
+        <kbd>R</kbd> recover · <kbd>T</kbd> restart · gamepad supported
       </div>
     </div>
-    <canvas id="game"></canvas>
+
+    <div id="touch" aria-label="Touch controls">
+      <div class="touch-group left">
+        <button type="button" data-control="left" aria-label="Steer left">&#9664;</button>
+        <button type="button" data-control="right" aria-label="Steer right">&#9654;</button>
+      </div>
+      <div class="touch-group top">
+        <button type="button" class="small" data-control="recover">RESET</button>
+        <button type="button" class="small" data-control="camera">CAM</button>
+      </div>
+      <div class="touch-group right">
+        <button type="button" class="hb" data-control="handbrake">HB</button>
+        <button type="button" class="brake" data-control="brake">BRAKE</button>
+        <button type="button" class="gas" data-control="gas">GAS</button>
+      </div>
+    </div>
+
+    <div id="loading" class="overlay">
+      <div class="overlay-title">DIRT RALLY</div>
+      <div class="overlay-status">Building the stage…</div>
+      <div class="spinner" aria-hidden="true"></div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
