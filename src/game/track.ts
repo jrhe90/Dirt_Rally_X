@@ -130,7 +130,7 @@ export class Track {
     // Dirt road ribbon
     const roadGeo = this.buildRoadGeometry(this.halfWidth, 0.05)
     const roadMat = new THREE.MeshStandardMaterial({
-      color: 0x6b4423,
+      color: 0x8a5a30,
       roughness: 0.95,
       metalness: 0.02,
       flatShading: true,
@@ -142,7 +142,7 @@ export class Track {
     // Lighter center dust strip
     const stripGeo = this.buildRoadGeometry(1.1, 0.08)
     const stripMat = new THREE.MeshStandardMaterial({
-      color: 0x9a6b3a,
+      color: 0xb8844a,
       roughness: 1,
       metalness: 0,
       flatShading: true,
@@ -152,7 +152,7 @@ export class Track {
     // Soft berms / shoulders
     const bermGeo = this.buildBermGeometry()
     const bermMat = new THREE.MeshStandardMaterial({
-      color: 0x4a321c,
+      color: 0x6a4428,
       roughness: 1,
       metalness: 0,
       flatShading: true,
@@ -290,16 +290,16 @@ export class Track {
     geo.computeVertexNormals()
 
     const mat = new THREE.MeshStandardMaterial({
-      color: 0x3a5a28,
+      color: 0x5a7a38,
       roughness: 0.92,
       metalness: 0,
       flatShading: true,
     })
     // Mix dirt tones into grass via vertex colors
     const colors = new Float32Array(pos.count * 3)
-    const cGrass = new THREE.Color(0x3f5c2a)
-    const cDirt = new THREE.Color(0x5c3d22)
-    const cDry = new THREE.Color(0x6e5530)
+    const cGrass = new THREE.Color(0x6a8a40)
+    const cDirt = new THREE.Color(0x8a6038)
+    const cDry = new THREE.Color(0x9a7848)
     const tmp = new THREE.Color()
 
     for (let i = 0; i < pos.count; i++) {
@@ -325,18 +325,18 @@ export class Track {
     const treeGeo = new THREE.ConeGeometry(1.4, 5.5, 6)
     const trunkGeo = new THREE.CylinderGeometry(0.28, 0.38, 1.6, 5)
     const treeMat = new THREE.MeshStandardMaterial({
-      color: 0x2d4a22,
+      color: 0x3f6a30,
       roughness: 0.9,
       flatShading: true,
     })
     const trunkMat = new THREE.MeshStandardMaterial({
-      color: 0x4a3020,
+      color: 0x6a4430,
       roughness: 1,
       flatShading: true,
     })
     const rockGeo = new THREE.DodecahedronGeometry(0.9, 0)
     const rockMat = new THREE.MeshStandardMaterial({
-      color: 0x6a6054,
+      color: 0x8a8070,
       roughness: 0.95,
       flatShading: true,
     })

@@ -26,7 +26,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace
 
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0xf0a060)
-scene.fog = new THREE.FogExp2(0xe8a868, 0.0085)
+scene.fog = new THREE.FogExp2(0xe8a868, 0.0055)
 
 // Sky dome gradient via large sphere
 {
@@ -83,8 +83,8 @@ sun.shadow.camera.top = 80
 sun.shadow.camera.bottom = -80
 sun.shadow.bias = -0.0003
 scene.add(sun)
-scene.add(new THREE.AmbientLight(0xc4a070, 0.55))
-scene.add(new THREE.HemisphereLight(0xffc090, 0x3a5a28, 0.45))
+scene.add(new THREE.AmbientLight(0xc4a070, 0.85))
+scene.add(new THREE.HemisphereLight(0xffc090, 0x6a8a40, 0.7))
 
 const track = new Track(scene)
 const car = new Car(track)
