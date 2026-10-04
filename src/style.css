@@ -1,0 +1,161 @@
+:root {
+  --dust: #c9a06a;
+  --earth: #3d2a1a;
+  --clay: #8b5a2b;
+  --sand: #e8d5b0;
+  --sky-top: #f0a060;
+  --ink: #1a120c;
+  --hud: rgba(26, 18, 12, 0.72);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--sand);
+  font-family: "IBM Plex Sans", sans-serif;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.brand {
+  position: absolute;
+  top: 1.25rem;
+  left: 1.5rem;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  letter-spacing: 0.08em;
+  color: var(--sand);
+  text-shadow: 0 2px 18px rgba(196, 120, 58, 0.45);
+  line-height: 1;
+}
+
+.meters {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.5rem;
+  display: flex;
+  gap: 1.25rem;
+  background: var(--hud);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(232, 213, 176, 0.18);
+  padding: 0.75rem 1.1rem;
+  border-radius: 4px;
+}
+
+.meter {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 4.5rem;
+  text-align: right;
+}
+
+.meter .label {
+  font-size: 0.65rem;
+  letter-spacing: 0.14em;
+  color: var(--dust);
+  opacity: 0.85;
+}
+
+#speed,
+#time,
+#lap {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.65rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.meter .unit {
+  font-size: 0.7rem;
+  color: var(--dust);
+}
+
+.message {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: "Bebas Neue", sans-serif;
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  letter-spacing: 0.12em;
+  text-align: center;
+  color: var(--sand);
+  text-shadow: 0 4px 28px rgba(0, 0, 0, 0.55);
+  transition: opacity 0.35s ease;
+}
+
+.message.hidden {
+  opacity: 0;
+}
+
+.controls {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.8rem;
+  color: rgba(232, 213, 176, 0.75);
+  background: var(--hud);
+  padding: 0.55rem 0.9rem;
+  border-radius: 4px;
+  border: 1px solid rgba(232, 213, 176, 0.12);
+  white-space: nowrap;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.35rem;
+  padding: 0.1rem 0.35rem;
+  margin: 0 0.1rem;
+  border: 1px solid rgba(232, 213, 176, 0.35);
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 0.72rem;
+  color: var(--sand);
+  background: rgba(61, 42, 26, 0.8);
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .meters {
+    top: auto;
+    bottom: 4rem;
+    right: 0.75rem;
+    left: 0.75rem;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .controls {
+    bottom: 0.75rem;
+    font-size: 0.68rem;
+    width: calc(100% - 1.5rem);
+    text-align: center;
+    white-space: normal;
+  }
+
+  .brand {
+    top: 0.85rem;
+    left: 0.85rem;
+  }
+}
