@@ -497,9 +497,31 @@ kbd {
   .hud-tacho {
     right: 50%;
     bottom: auto;
-    top: 0.6rem;
+    top: 0.4rem;
     transform: translateX(50%);
-    width: 130px;
+    width: 120px;
+  }
+
+  .tacho-gear {
+    top: 60%;
+    min-width: 2rem;
+    font-size: 1.4rem;
+  }
+
+  .tacho-speed {
+    bottom: -1.6rem;
+  }
+
+  .tacho-speed span {
+    font-size: 1.5rem;
+  }
+
+  .message-wrap {
+    top: 55%;
+  }
+
+  .touch-group.top {
+    top: 5.6rem;
   }
 
   .hud-board {
