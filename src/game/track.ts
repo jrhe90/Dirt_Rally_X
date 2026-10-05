@@ -31,7 +31,15 @@ const SAMPLE_SPACING = 1
 const COARSE_STEP = 8
 const LOCAL_SEARCH = 40
 const TARMAC_RANGE: [number, number] = [0.48, 0.6]
-const RIBBON_OFFSETS = [
+export const WALL = {
+  offset: HALF_WIDTH + SHOULDER + 0.35,
+  thickness: 0.5,
+  height: 0.6,
+  /** How far below road level the wall footing reaches so it never floats on slopes. */
+  footing: 1.4,
+  segment: 4,
+}
+export const RIBBON_OFFSETS = [
   -(HALF_WIDTH + SHOULDER),
   -HALF_WIDTH,
   -HALF_WIDTH * 0.5,
@@ -94,8 +102,9 @@ export class Track {
   readonly spacing: number
   readonly ribbonPositions: Float32Array
   readonly ribbonIndices: Uint32Array
-  private readonly ribbonColors: Float32Array
-  private readonly ribbonUvs: Float32Array
+  readonly ribbonRows: number
+  /** Sample index range lined with stone walls on both sides (the tarmac section). */
+  readonly wallRange: [number, number]
 
   constructor() {
     const curve = buildCenterline()
@@ -133,8 +142,41 @@ export class Track {
     const ribbon = this.buildRibbon()
     this.ribbonPositions = ribbon.positions
     this.ribbonIndices = ribbon.indices
-    this.ribbonColors = ribbon.colors
-    this.ribbonUvs = ribbon.uvs
+    this.ribbonRows = n + 1
+
+    const margin = Math.round(4 / this.spacing)
+    this.wallRange = [Math.ceil(TARMAC_RANGE[0] * n) + margin, Math.floor(TARMAC_RANGE[1] * n) - margin]
+  }
+
+  /** 0 on gravel, 1 on tarmac, with a short blend at the boundaries. */
+  tarmacWeight(distance: number): number {
+    const frac = distance / this.length
+    const blend = 3 / this.length
+    const a = THREE.MathUtils.smoothstep(frac, TARMAC_RANGE[0] - blend, TARMAC_RANGE[0] + blend)
+    const b = 1 - THREE.MathUtils.smoothstep(frac, TARMAC_RANGE[1] - blend, TARMAC_RANGE[1] + blend)
+    return Math.min(a, b)
+  }
+
+  /** Wall segments as (center, yaw, half length, base height) for both sides of the wall range. */
+  wallSegments(): { center: THREE.Vector3; yaw: number; halfLength: number; side: number }[] {
+    const out: { center: THREE.Vector3; yaw: number; halfLength: number; side: number }[] = []
+    const [start, end] = this.wallRange
+    for (const side of [-1, 1]) {
+      for (let i = start; i < end; i += WALL.segment) {
+        const j = Math.min(i + WALL.segment, end)
+        const a = this.sample(i)
+        const b = this.sample(j)
+        const pa = a.position.clone().addScaledVector(a.binormal, side * WALL.offset)
+        const pb = b.position.clone().addScaledVector(b.binormal, side * WALL.offset)
+        out.push({
+          center: pa.clone().lerp(pb, 0.5),
+          yaw: Math.atan2(pb.x - pa.x, pb.z - pa.z),
+          halfLength: Math.hypot(pb.x - pa.x, pb.z - pa.z) / 2 + 0.05,
+          side,
+        })
+      }
+    }
+    return out
   }
 
   get count(): number {
@@ -208,31 +250,15 @@ export class Track {
     const cols = RIBBON_OFFSETS.length
     const rows = n + 1
     const positions = new Float32Array(rows * cols * 3)
-    const colors = new Float32Array(rows * cols * 3)
-    const uvs = new Float32Array(rows * cols * 2)
     const indices: number[] = []
-
-    const gravel = new THREE.Color(0x9a6a3c)
-    const tarmac = new THREE.Color(0x4a4744)
-    const shoulder = new THREE.Color(0x6a4a2c)
 
     for (let r = 0; r < rows; r++) {
       const s = this.samples[r % n]
-      const distance = r === n ? this.length : s.distance
       for (let c = 0; c < cols; c++) {
         const v = (r * cols + c) * 3
         positions[v] = s.position.x + s.binormal.x * RIBBON_OFFSETS[c]
         positions[v + 1] = s.position.y - RIBBON_DROPS[c]
         positions[v + 2] = s.position.z + s.binormal.z * RIBBON_OFFSETS[c]
-
-        const col = c === 0 || c === cols - 1 ? shoulder : s.surface === 'tarmac' ? tarmac : gravel
-        colors[v] = col.r
-        colors[v + 1] = col.g
-        colors[v + 2] = col.b
-
-        const u = (r * cols + c) * 2
-        uvs[u] = c / (cols - 1)
-        uvs[u + 1] = distance / 8
       }
     }
 
@@ -246,7 +272,7 @@ export class Track {
       }
     }
 
-    return { positions, colors, uvs, indices: new Uint32Array(indices) }
+    return { positions, indices: new Uint32Array(indices) }
   }
 
   /** Closest point on the centerline. Pass a hint index for a fast local search. */
@@ -340,107 +366,17 @@ export class Track {
       )
     }
 
-    return road
-  }
-
-  createMeshes(): THREE.Group {
-    const group = new THREE.Group()
-    group.name = 'track'
-
-    const geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.BufferAttribute(this.ribbonPositions, 3))
-    geo.setAttribute('color', new THREE.BufferAttribute(this.ribbonColors, 3))
-    geo.setAttribute('uv', new THREE.BufferAttribute(this.ribbonUvs, 2))
-    geo.setIndex(new THREE.BufferAttribute(this.ribbonIndices, 1))
-    geo.computeVertexNormals()
-
-    const road = new THREE.Mesh(
-      geo,
-      new THREE.MeshStandardMaterial({
-        vertexColors: true,
-        map: createGravelTexture(),
-        roughness: 0.95,
-        metalness: 0,
-        polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1,
-      }),
-    )
-    road.receiveShadow = true
-    group.add(road)
-    group.add(this.buildStartGate())
-    return group
-  }
-
-  private buildStartGate(): THREE.Group {
-    const gate = new THREE.Group()
-    const start = this.samples[0]
-    gate.position.copy(start.position)
-    gate.rotation.y = Math.atan2(start.tangent.x, start.tangent.z)
-
-    const postMat = new THREE.MeshStandardMaterial({ color: 0xd4c4a0, roughness: 0.7 })
-    const bannerMat = new THREE.MeshStandardMaterial({
-      color: 0xc4783a,
-      roughness: 0.6,
-      emissive: 0x3a1e0a,
-      emissiveIntensity: 0.3,
-    })
-    const span = HALF_WIDTH + SHOULDER + 0.6
-
-    for (const x of [-span, span]) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, 5.6, 0.3), postMat)
-      post.position.set(x, 2.4, 0)
-      post.castShadow = true
-      gate.add(post)
+    const footY = WALL.footing
+    const halfH = (WALL.height + footY) / 2
+    for (const seg of this.wallSegments()) {
+      world.createCollider(
+        RAPIER.ColliderDesc.cuboid(WALL.thickness / 2, halfH, seg.halfLength)
+          .setTranslation(seg.center.x, seg.center.y - footY + halfH, seg.center.z)
+          .setRotation({ x: 0, y: Math.sin(seg.yaw / 2), z: 0, w: Math.cos(seg.yaw / 2) })
+          .setFriction(0.6),
+      )
     }
 
-    const banner = new THREE.Mesh(new THREE.BoxGeometry(span * 2 + 0.4, 1, 0.14), bannerMat)
-    banner.position.set(0, 4.9, 0)
-    banner.castShadow = true
-    gate.add(banner)
-
-    const line = new THREE.Mesh(
-      new THREE.PlaneGeometry(HALF_WIDTH * 2, 0.6),
-      new THREE.MeshStandardMaterial({ color: 0xe8e0d0, roughness: 0.8 }),
-    )
-    line.rotation.x = -Math.PI / 2
-    line.position.y = 0.04
-    gate.add(line)
-
-    return gate
+    return road
   }
-}
-
-function createGravelTexture(): THREE.Texture | null {
-  if (typeof document === 'undefined') return null
-  const size = 256
-  const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
-  ctx.fillStyle = '#d8d0c4'
-  ctx.fillRect(0, 0, size, size)
-
-  for (let i = 0; i < 5000; i++) {
-    const shade = 150 + Math.random() * 105
-    ctx.fillStyle = `rgb(${shade},${shade * 0.96},${shade * 0.9})`
-    const r = Math.random() * 1.8 + 0.4
-    ctx.fillRect(Math.random() * size, Math.random() * size, r, r)
-  }
-  // Wheel ruts
-  for (const x of [0.32, 0.68]) {
-    const grad = ctx.createLinearGradient((x - 0.06) * size, 0, (x + 0.06) * size, 0)
-    grad.addColorStop(0, 'rgba(0,0,0,0)')
-    grad.addColorStop(0.5, 'rgba(60,40,25,0.22)')
-    grad.addColorStop(1, 'rgba(0,0,0,0)')
-    ctx.fillStyle = grad
-    ctx.fillRect((x - 0.06) * size, 0, 0.12 * size, size)
-  }
-
-  const tex = new THREE.CanvasTexture(canvas)
-  tex.wrapS = THREE.RepeatWrapping
-  tex.wrapT = THREE.RepeatWrapping
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.anisotropy = 8
-  return tex
 }

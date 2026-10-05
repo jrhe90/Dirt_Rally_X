@@ -3,56 +3,44 @@ import RAPIER from '@dimforge/rapier3d-compat'
 import { naturalHeight, smoothstep, WORLD_HALF_SIZE } from './heights'
 import type { Track } from './track'
 
-const GRID = 200
+export const TERRAIN_GRID = 200
 const BLEND = 20
 const UNDER_ROAD = 0.6
 
 export class Terrain {
   readonly size = WORLD_HALF_SIZE * 2
-  private readonly positions: Float32Array
-  private readonly indices: Uint32Array
-  private readonly colors: Float32Array
-  private readonly track: Track
+  readonly positions: Float32Array
+  readonly indices: Uint32Array
+  /** Signed distance from the track centerline per vertex. */
+  readonly laterals: Float32Array
+  readonly track: Track
 
   constructor(track: Track) {
     this.track = track
-    const verts = (GRID + 1) * (GRID + 1)
+    const verts = (TERRAIN_GRID + 1) * (TERRAIN_GRID + 1)
     this.positions = new Float32Array(verts * 3)
-    this.colors = new Float32Array(verts * 3)
+    this.laterals = new Float32Array(verts)
+    const step = this.size / TERRAIN_GRID
 
-    const grass = new THREE.Color(0x6f8a3e)
-    const dry = new THREE.Color(0xa08850)
-    const dirt = new THREE.Color(0x8a6038)
-    const rock = new THREE.Color(0x8a7c6a)
-    const tmp = new THREE.Color()
-    const step = this.size / GRID
-
-    for (let iz = 0; iz <= GRID; iz++) {
-      for (let ix = 0; ix <= GRID; ix++) {
+    for (let iz = 0; iz <= TERRAIN_GRID; iz++) {
+      for (let ix = 0; ix <= TERRAIN_GRID; ix++) {
         const x = -WORLD_HALF_SIZE + ix * step
         const z = -WORLD_HALF_SIZE + iz * step
         const { height, lateral } = this.sampleHeight(x, z)
-        const v = (iz * (GRID + 1) + ix) * 3
-        this.positions[v] = x
-        this.positions[v + 1] = height
-        this.positions[v + 2] = z
-
-        const dryness = (Math.sin(x * 0.06) + Math.cos(z * 0.05) + Math.sin((x - z) * 0.13) * 0.5) * 0.3 + 0.5
-        const dirtMix = 1 - smoothstep(track.halfWidth + track.shoulder, 18, Math.abs(lateral))
-        const rockMix = smoothstep(10, 26, height) * 0.6
-        tmp.copy(grass).lerp(dry, THREE.MathUtils.clamp(dryness, 0, 1) * 0.55).lerp(rock, rockMix).lerp(dirt, dirtMix * 0.9)
-        this.colors[v] = tmp.r
-        this.colors[v + 1] = tmp.g
-        this.colors[v + 2] = tmp.b
+        const i = iz * (TERRAIN_GRID + 1) + ix
+        this.positions[i * 3] = x
+        this.positions[i * 3 + 1] = height
+        this.positions[i * 3 + 2] = z
+        this.laterals[i] = lateral
       }
     }
 
     const idx: number[] = []
-    for (let iz = 0; iz < GRID; iz++) {
-      for (let ix = 0; ix < GRID; ix++) {
-        const a = iz * (GRID + 1) + ix
+    for (let iz = 0; iz < TERRAIN_GRID; iz++) {
+      for (let ix = 0; ix < TERRAIN_GRID; ix++) {
+        const a = iz * (TERRAIN_GRID + 1) + ix
         const b = a + 1
-        const c = a + (GRID + 1)
+        const c = a + (TERRAIN_GRID + 1)
         const d = c + 1
         idx.push(a, c, b, b, c, d)
       }
@@ -81,6 +69,14 @@ export class Terrain {
     return this.sampleHeight(x, z).height
   }
 
+  /** Approximate surface normal from central differences. */
+  normalAt(x: number, z: number, out = new THREE.Vector3()): THREE.Vector3 {
+    const e = 1
+    const dx = this.heightAt(x + e, z) - this.heightAt(x - e, z)
+    const dz = this.heightAt(x, z + e) - this.heightAt(x, z - e)
+    return out.set(-dx, 2 * e, -dz).normalize()
+  }
+
   createCollider(world: RAPIER.World): RAPIER.Collider {
     const collider = world.createCollider(
       RAPIER.ColliderDesc.trimesh(this.positions, this.indices).setFriction(0.8),
@@ -98,25 +94,5 @@ export class Terrain {
     }
 
     return collider
-  }
-
-  createMesh(): THREE.Mesh {
-    const geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.BufferAttribute(this.positions, 3))
-    geo.setAttribute('color', new THREE.BufferAttribute(this.colors, 3))
-    geo.setIndex(new THREE.BufferAttribute(this.indices, 1))
-    geo.computeVertexNormals()
-
-    const mesh = new THREE.Mesh(
-      geo,
-      new THREE.MeshStandardMaterial({
-        vertexColors: true,
-        roughness: 0.95,
-        metalness: 0,
-        flatShading: true,
-      }),
-    )
-    mesh.receiveShadow = true
-    return mesh
   }
 }

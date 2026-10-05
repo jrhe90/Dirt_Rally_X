@@ -16,31 +16,42 @@
     <canvas id="game"></canvas>
 
     <div id="hud">
-      <div class="brand">DIRT RALLY</div>
-
-      <div class="panel timing">
-        <div class="meter">
-          <span class="label">STAGE TIME</span>
-          <span id="time" class="value">0:00.00</span>
-        </div>
-        <div class="meter">
-          <span class="label">LAP</span>
-          <span id="lap" class="value">1 / 3</span>
-        </div>
-        <div class="progress"><div id="progress-fill"></div></div>
+      <div class="hud-time">
+        <span class="hud-label">TIME</span>
+        <span id="time" class="hud-time-value">0:00.00</span>
+        <span id="lap" class="hud-lap">LAP 1 / 3</span>
       </div>
 
-      <div class="panel dash">
-        <div class="speedo">
-          <span id="speed" class="value big">0</span>
-          <span class="unit">KM/H</span>
+      <div class="hud-progress" aria-hidden="true">
+        <span class="hud-progress-end">FINISH</span>
+        <div class="hud-progress-track">
+          <div id="progress-fill" class="hud-progress-fill"></div>
+          <div class="hud-progress-mark" style="bottom: 33.333%"></div>
+          <div class="hud-progress-mark" style="bottom: 66.666%"></div>
+          <div id="progress-car" class="hud-progress-car"></div>
         </div>
-        <div class="gearbox">
-          <span class="label">GEAR</span>
-          <span id="gear" class="value big">1</span>
+        <span class="hud-progress-end">START</span>
+      </div>
+
+      <div class="hud-board">
+        <div class="hud-board-head">
+          <span>SS1 · KALTENBACH</span>
+          <span id="surface" class="hud-surface" data-surface="gravel">GRAVEL</span>
         </div>
-        <div class="rev"><div id="rev-fill"></div></div>
-        <span id="surface" class="surface" data-surface="gravel">GRAVEL</span>
+        <ol id="board" class="hud-board-rows"></ol>
+      </div>
+
+      <div class="hud-tacho">
+        <svg id="tacho" viewBox="0 0 220 220" aria-hidden="true">
+          <g id="tacho-ticks"></g>
+          <path id="tacho-arc" class="tacho-arc" d="" />
+          <g id="tacho-needle" class="tacho-needle">
+            <path d="M 107 112 L 110 34 L 113 112 Z" />
+          </g>
+          <circle cx="110" cy="110" r="9" class="tacho-hub" />
+        </svg>
+        <div class="tacho-gear"><span id="gear">1</span></div>
+        <div class="tacho-speed"><span id="speed">0</span><small>KM/H</small></div>
       </div>
 
       <div class="message-wrap hidden">

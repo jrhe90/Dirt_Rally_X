@@ -3,9 +3,17 @@ import * as THREE from 'three'
 import { autopilot } from './game/autopilot'
 import { CameraRig } from './game/camera'
 import { DustSystem } from './game/dust'
+import { loadAssets, type GameAssets } from './game/graphics/assets'
+import { createEnvironment } from './game/graphics/environment'
+import { PostFx } from './game/graphics/postfx'
+import { detectQuality, type Quality } from './game/graphics/quality'
+import { createRoad } from './game/graphics/road'
+import { createSceneryVisuals } from './game/graphics/scenery'
+import { createTerrainMesh } from './game/graphics/terrainMesh'
 import { formatTime, Hud } from './game/hud'
 import { initInput, readInput } from './game/input'
 import { createStage, PHYSICS_STEP, type Stage } from './game/stage'
+import { SURFACES } from './game/vehicle/config'
 import { CarModel } from './game/vehicle/carModel'
 import type { DriveControls } from './game/vehicle/vehicle'
 
@@ -16,7 +24,6 @@ const FLIPPED_HINT_DELAY = 2
 const overlay = document.querySelector<HTMLDivElement>('#loading')!
 const overlayStatus = overlay.querySelector<HTMLDivElement>('.overlay-status')!
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
-const coarse = window.matchMedia('(pointer: coarse)').matches
 const demo = new URLSearchParams(window.location.search).has('demo')
 
 function fail(message: string): never {
@@ -25,15 +32,19 @@ function fail(message: string): never {
   throw new Error(message)
 }
 
-function createRenderer(): THREE.WebGLRenderer {
+function createRenderer(quality: Quality): THREE.WebGLRenderer {
   try {
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: !coarse, powerPreference: 'high-performance' })
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, coarse ? 1.5 : 2))
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: false,
+      powerPreference: 'high-performance',
+      stencil: false,
+      depth: true,
+    })
+    renderer.setPixelRatio(quality.pixelRatio)
     renderer.setSize(window.innerWidth, window.innerHeight)
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFShadowMap
-    renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.1
     renderer.outputColorSpace = THREE.SRGBColorSpace
     return renderer
   } catch {
@@ -41,71 +52,27 @@ function createRenderer(): THREE.WebGLRenderer {
   }
 }
 
-function buildScene(stage: Stage) {
+function buildScene(renderer: THREE.WebGLRenderer, stage: Stage, assets: GameAssets, quality: Quality) {
   const scene = new THREE.Scene()
-  const fogColor = new THREE.Color(0xe6a874)
-  scene.background = fogColor
-  scene.fog = new THREE.FogExp2(fogColor, 0.0042)
-
-  const sky = new THREE.Mesh(
-    new THREE.SphereGeometry(700, 32, 16),
-    new THREE.ShaderMaterial({
-      side: THREE.BackSide,
-      depthWrite: false,
-      fog: false,
-      uniforms: {
-        top: { value: new THREE.Color(0x6f9ac8) },
-        mid: { value: new THREE.Color(0xf0c090) },
-        horizon: { value: new THREE.Color(0xe6a874) },
-      },
-      vertexShader: /* glsl */ `
-        varying vec3 vDir;
-        void main() {
-          vDir = normalize(position);
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: /* glsl */ `
-        uniform vec3 top;
-        uniform vec3 mid;
-        uniform vec3 horizon;
-        varying vec3 vDir;
-        void main() {
-          float h = vDir.y;
-          vec3 col = mix(horizon, mid, smoothstep(0.0, 0.18, h));
-          col = mix(col, top, smoothstep(0.15, 0.7, h));
-          gl_FragColor = vec4(col, 1.0);
-          #include <colorspace_fragment>
-        }
-      `,
-    }),
-  )
-  scene.add(sky)
-
-  const sun = new THREE.DirectionalLight(0xffd6a8, 2.6)
-  sun.castShadow = true
-  sun.shadow.mapSize.set(coarse ? 1024 : 2048, coarse ? 1024 : 2048)
-  sun.shadow.camera.near = 1
-  sun.shadow.camera.far = 160
-  sun.shadow.camera.left = -45
-  sun.shadow.camera.right = 45
-  sun.shadow.camera.top = 45
-  sun.shadow.camera.bottom = -45
-  sun.shadow.bias = -0.0004
-  sun.shadow.normalBias = 0.03
-  scene.add(sun, sun.target)
-  scene.add(new THREE.HemisphereLight(0xffd8b0, 0x5a6a38, 0.9))
-  scene.add(new THREE.AmbientLight(0xc4a070, 0.35))
-
-  scene.add(stage.terrain.createMesh())
-  scene.add(stage.track.createMeshes())
-  scene.add(stage.scenery.createMeshes())
-
-  return { scene, sun, sky }
+  const env = createEnvironment(renderer, scene, assets.hdr, quality)
+  scene.add(createTerrainMesh(stage.terrain, assets))
+  scene.add(createRoad(stage.track, assets))
+  const scenery = createSceneryVisuals(stage.scenery, stage.terrain, stage.track, assets, quality.grassCount)
+  scene.add(scenery.group)
+  return { scene, env, scenery }
 }
 
 async function main() {
-  const renderer = createRenderer()
+  const quality = detectQuality()
+  const renderer = createRenderer(quality)
+
+  overlayStatus.textContent = 'Loading textures and lighting…'
+  const assetsPromise = loadAssets(renderer, (loaded, total) => {
+    overlayStatus.textContent = `Loading textures and lighting… ${Math.round((loaded / total) * 100)}%`
+  }).catch((err) => {
+    console.error(err)
+    fail('The stage textures could not be loaded. Run `npm run fetch-assets`, then reload.')
+  })
 
   let stage: Stage
   try {
@@ -114,15 +81,19 @@ async function main() {
     console.error(err)
     fail('The physics engine failed to start. Try reloading the page or using a recent desktop browser.')
   }
+  const assets = await assetsPromise
+  overlayStatus.textContent = 'Building the stage…'
+  await new Promise((r) => setTimeout(r, 0))
 
   const { world, vehicle, race, terrain } = stage
-  const { scene, sun, sky } = buildScene(stage)
+  const { scene, env, scenery } = buildScene(renderer, stage, assets, quality)
   const car = new CarModel()
   scene.add(car.group)
-  const dust = new DustSystem(coarse ? 700 : 1800)
+  const dust = new DustSystem(quality.dustParticles)
   scene.add(dust.points)
 
   const rig = new CameraRig(window.innerWidth / window.innerHeight, terrain)
+  const post = new PostFx(renderer, scene, rig.camera, quality)
   const hud = new Hud()
   initInput(document.querySelector('#touch'))
 
@@ -130,6 +101,7 @@ async function main() {
     const w = window.innerWidth
     const h = window.innerHeight
     renderer.setSize(w, h)
+    post.setSize(w, h)
     rig.camera.aspect = w / h
     rig.camera.updateProjectionMatrix()
     dust.setViewport(h * renderer.getPixelRatio(), rig.camera.fov)
@@ -143,6 +115,7 @@ async function main() {
   let accumulator = 0
   let flippedFor = 0
   let lastCount = -1
+  let dirt = 0.3
 
   const placeCar = (pose: { position: THREE.Vector3; yaw: number }) => {
     vehicle.reset(pose.position, pose.yaw)
@@ -166,6 +139,8 @@ async function main() {
   }
 
   restart()
+  // Compile every shader before the overlay fades so the first frames do not hitch.
+  await renderer.compileAsync(scene, rig.camera)
   overlay.classList.add('done')
 
   const HOLD: DriveControls = { throttle: 0, brake: 0, steer: 0, handbrake: 1 }
@@ -224,27 +199,31 @@ async function main() {
       if (pos.y < terrain.heightAt(pos.x, pos.z) - 4) recover()
     }
 
+    const speed = vehicle.velocity.length()
+    if (vehicle.surface) dirt += dt * speed * SURFACES[vehicle.surface].dust * 0.0012
+    car.setDirt(Math.min(dirt, 0.95))
+    car.setBraking(controls.brake > 0.1)
     car.sync(vehicle)
     dust.emitFromVehicle(vehicle, dt)
     dust.update(dt)
     rig.update(dt, vehicle)
     dust.setViewport(window.innerHeight * renderer.getPixelRatio(), rig.camera.fov)
-
-    sun.position.set(pos.x + 50, pos.y + 70, pos.z + 30)
-    sun.target.position.copy(pos)
-    sky.position.copy(rig.camera.position)
+    env.follow(pos)
+    scenery.update(timer.getElapsed())
 
     hud.update({
-      speedKmh: vehicle.velocity.length() * 3.6,
+      speedKmh: speed * 3.6,
       gear: vehicle.gear,
       rpm: vehicle.rpm,
       time: race.time,
       lap: race.lap,
-      lapProgress: race.lapProgress,
+      stageProgress: race.stageProgress,
+      lapTimes: race.lapTimes,
+      currentLapTime: race.currentLapTime,
       surface: vehicle.surface,
     })
 
-    renderer.render(scene, rig.camera)
+    post.render(dt)
   })
 }
 

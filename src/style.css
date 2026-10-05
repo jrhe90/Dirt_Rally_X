@@ -39,134 +39,272 @@ body {
   z-index: 10;
 }
 
-.brand {
+.hud-time {
   position: absolute;
-  top: 1.1rem;
-  left: 1.4rem;
+  top: 1.2rem;
+  left: 1.6rem;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  column-gap: 0.7rem;
+  padding: 0.45rem 1.3rem 0.5rem 0.9rem;
+  background: linear-gradient(90deg, rgba(8, 10, 14, 0.72), rgba(8, 10, 14, 0.15));
+  border-left: 3px solid var(--accent);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+}
+
+.hud-label {
   font-family: "Bebas Neue", sans-serif;
-  font-size: clamp(1.8rem, 4.5vw, 3rem);
-  letter-spacing: 0.08em;
+  font-size: 1.05rem;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.hud-time-value {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: clamp(2rem, 4.2vw, 2.9rem);
   line-height: 1;
-  text-shadow: 0 2px 18px rgba(232, 116, 58, 0.5);
-}
-
-.panel {
-  position: absolute;
-  background: var(--panel);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-}
-
-.label {
-  font-size: 0.62rem;
-  letter-spacing: 0.16em;
-  color: var(--dust);
-}
-
-.value {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 1.6rem;
   letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.hud-lap {
+  grid-column: 2;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+.hud-progress {
+  position: absolute;
+  left: 1.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 0.45rem;
+}
+
+.hud-progress-end {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.hud-progress-track {
+  position: relative;
+  width: 6px;
+  height: min(38vh, 300px);
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.hud-progress-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background: linear-gradient(0deg, #ffd21f, var(--accent));
+  transform-origin: bottom center;
+  transform: scaleY(0);
+}
+
+.hud-progress-mark {
+  position: absolute;
+  left: -4px;
+  width: 14px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.hud-progress-car {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, 50%) rotate(45deg);
+  background: #fff;
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 10px rgba(255, 120, 40, 0.7);
+}
+
+.hud-board {
+  position: absolute;
+  top: 1.2rem;
+  right: 1.6rem;
+  min-width: 15rem;
+  font-family: "Bebas Neue", sans-serif;
+  letter-spacing: 0.06em;
+}
+
+.hud-board-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0.8rem;
+  background: var(--accent);
+  color: #fff;
+  font-size: 1rem;
+  clip-path: polygon(12px 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.hud-surface {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.hud-surface[data-surface="tarmac"] {
+  color: #e6ecf2;
+}
+
+.hud-surface[data-surface="grass"] {
+  color: #e2ffb0;
+}
+
+.hud-surface[data-surface="air"] {
+  color: #1a120c;
+}
+
+.hud-board-rows {
+  list-style: none;
+}
+
+.hud-board-rows li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.22rem 0.8rem;
+  font-size: 1.15rem;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(8, 10, 14, 0.62);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-board-rows li.active {
+  color: #fff;
+  background: linear-gradient(90deg, rgba(255, 120, 40, 0.5), rgba(8, 10, 14, 0.62));
+}
+
+.hud-board-rows li.best {
+  color: #ffd21f;
+}
+
+.hud-tacho {
+  position: absolute;
+  right: 1.4rem;
+  bottom: 1.2rem;
+  width: clamp(170px, 22vw, 240px);
+  aspect-ratio: 1;
+}
+
+.hud-tacho svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.55));
+}
+
+.tick {
+  stroke: rgba(255, 255, 255, 0.75);
+  stroke-width: 2;
+}
+
+.tick.major {
+  stroke: #fff;
+  stroke-width: 3.5;
+}
+
+.tick.hot {
+  stroke: #ff3a2a;
+}
+
+.tick-label {
+  fill: #fff;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 19px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.tick-label.hot {
+  fill: #ff3a2a;
+}
+
+.tacho-red {
+  fill: none;
+  stroke: rgba(255, 40, 30, 0.55);
+  stroke-width: 8;
+}
+
+.tacho-arc {
+  fill: none;
+  stroke: rgba(255, 150, 60, 0.85);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.tacho-needle {
+  fill: #ff4a1c;
+  transform-origin: 110px 110px;
+  transform-box: view-box;
+}
+
+.tacho-hub {
+  fill: #15171b;
+  stroke: #fff;
+  stroke-width: 2.5;
+}
+
+.tacho-gear {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  transform: translate(-50%, -50%);
+  min-width: 2.7rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  background: #d8261c;
+  color: #fff;
+  text-align: center;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  line-height: 1.1;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  transition: background 0.08s;
+}
+
+.tacho-gear.shift {
+  background: #ff5a1a;
+  box-shadow: 0 0 18px rgba(255, 90, 30, 0.9);
+}
+
+.tacho-speed {
+  position: absolute;
+  left: 50%;
+  bottom: 2%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-family: "Bebas Neue", sans-serif;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+}
+
+.tacho-speed span {
+  font-size: clamp(1.9rem, 3.4vw, 2.6rem);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
-.value.big {
-  font-size: 2.6rem;
-}
-
-.timing {
-  top: 1.1rem;
-  right: 1.4rem;
-  display: grid;
-  grid-template-columns: auto auto;
-  gap: 0.25rem 1.4rem;
-  padding: 0.7rem 1rem 0.8rem;
-}
-
-.meter {
-  display: grid;
-  gap: 0.15rem;
-  text-align: right;
-}
-
-.progress,
-.rev {
-  grid-column: 1 / -1;
-  height: 4px;
-  background: rgba(240, 230, 210, 0.12);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-#progress-fill,
-#rev-fill {
-  height: 100%;
-  width: 100%;
-  transform-origin: left center;
-  transform: scaleX(0);
-  background: var(--accent);
-}
-
-#rev-fill {
-  background: linear-gradient(90deg, #e8d5b0, var(--accent));
-  transition: background 0.1s;
-}
-
-#rev-fill.redline {
-  background: linear-gradient(90deg, var(--accent), #ff3020);
-}
-
-.dash {
-  right: 1.4rem;
-  bottom: 1.4rem;
-  display: grid;
-  grid-template-columns: auto auto;
-  align-items: end;
-  gap: 0.35rem 1.4rem;
-  padding: 0.75rem 1rem 0.7rem;
-  min-width: 13rem;
-}
-
-.speedo {
-  display: flex;
-  align-items: baseline;
-  gap: 0.35rem;
-}
-
-.unit {
-  font-size: 0.7rem;
+.tacho-speed small {
+  font-size: 0.85rem;
   letter-spacing: 0.12em;
-  color: var(--dust);
-}
-
-.gearbox {
-  display: grid;
-  justify-items: end;
-}
-
-.rev {
-  height: 6px;
-}
-
-.surface {
-  grid-column: 1 / -1;
-  font-size: 0.62rem;
-  letter-spacing: 0.18em;
-  color: var(--dust);
-}
-
-.surface[data-surface="tarmac"] {
-  color: #b8c0c8;
-}
-
-.surface[data-surface="grass"] {
-  color: #a8c070;
-}
-
-.surface[data-surface="air"] {
-  color: var(--accent);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .message-wrap {
@@ -207,7 +345,7 @@ body {
   padding: 0.5rem 0.8rem;
   border-radius: 4px;
   border: 1px solid var(--line);
-  max-width: calc(100% - 19rem);
+  max-width: calc(100% - 22rem);
 }
 
 kbd {
@@ -356,38 +494,42 @@ kbd {
     display: none;
   }
 
-  .dash {
+  .hud-tacho {
+    right: 50%;
     bottom: auto;
-    top: 6.6rem;
-    right: 1rem;
-    min-width: 10rem;
-    padding: 0.5rem 0.75rem;
+    top: 0.6rem;
+    transform: translateX(50%);
+    width: 130px;
   }
 
-  .value.big {
-    font-size: 2rem;
+  .hud-board {
+    display: none;
+  }
+
+  .hud-progress {
+    left: auto;
+    right: 1rem;
   }
 }
 
 @media (max-width: 720px) {
-  .brand {
-    top: 0.8rem;
-    left: 1rem;
+  .hud-time {
+    top: 0.7rem;
+    left: 0.8rem;
   }
 
-  .timing {
-    top: 0.8rem;
-    right: 1rem;
-    gap: 0.2rem 0.9rem;
-    padding: 0.5rem 0.75rem 0.6rem;
+  .hud-board {
+    top: 0.7rem;
+    right: 0.8rem;
+    min-width: 11rem;
   }
 
-  .value {
-    font-size: 1.3rem;
+  .hud-board-rows li {
+    font-size: 0.95rem;
   }
 
   .controls {
-    max-width: calc(100% - 2.8rem);
-    bottom: 9rem;
+    max-width: calc(100% - 1.6rem);
+    bottom: 13rem;
   }
 }

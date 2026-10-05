@@ -14,6 +14,8 @@ export class Race {
   time = 0
   trackIndex = 0
   lateral = 0
+  /** Completed lap times in seconds. */
+  readonly lapTimes: number[] = []
 
   private lastDistance = 0
   private readonly track: Track
@@ -28,6 +30,7 @@ export class Race {
     this.lap = 1
     this.finished = false
     this.time = 0
+    this.lapTimes.length = 0
     this.lastDistance = this.track.length - START_OFFSET
     this.trackIndex = this.track.pointAt(this.lastDistance).index
   }
@@ -67,11 +70,24 @@ export class Race {
     if (running && !this.finished) this.time += dt
 
     const lapsDone = Math.floor(this.progress / this.track.length)
+    while (this.lapTimes.length < Math.min(lapsDone, LAPS)) {
+      const before = this.lapTimes.reduce((s, t) => s + t, 0)
+      this.lapTimes.push(this.time - before)
+    }
     this.lap = THREE.MathUtils.clamp(lapsDone + 1, 1, LAPS)
     if (lapsDone >= LAPS) this.finished = true
   }
 
   get lapProgress(): number {
     return THREE.MathUtils.clamp((this.progress / this.track.length) % 1, 0, 1)
+  }
+
+  /** 0 at the start line, 1 at the finish of the last lap. */
+  get stageProgress(): number {
+    return THREE.MathUtils.clamp(this.progress / (this.track.length * LAPS), 0, 1)
+  }
+
+  get currentLapTime(): number {
+    return this.time - this.lapTimes.reduce((s, t) => s + t, 0)
   }
 }
