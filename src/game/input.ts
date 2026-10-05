@@ -6,6 +6,8 @@ export type FrameInput = DriveControls & {
   /** Restart the stage from the line. */
   restart: boolean
   cycleCamera: boolean
+  toggleMusic: boolean
+  cycleCodriver: boolean
 }
 
 type TouchControl = 'left' | 'right' | 'gas' | 'brake' | 'handbrake' | 'recover' | 'camera'
@@ -115,6 +117,8 @@ export function readInput(dt: number): FrameInput {
     recover: keyEdges.has('KeyR') || touchEdges.has('recover') || !!pad?.recover,
     restart: keyEdges.has('KeyT') || !!pad?.restart,
     cycleCamera: keyEdges.has('KeyC') || touchEdges.has('camera') || !!pad?.cycleCamera,
+    toggleMusic: keyEdges.has('KeyM'),
+    cycleCodriver: keyEdges.has('KeyN'),
   }
 
   keyEdges.clear()

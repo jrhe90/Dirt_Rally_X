@@ -56,7 +56,9 @@ export class Hud {
   private readonly message = $<HTMLElement>('#message')
   private readonly sub = $<HTMLElement>('#message-sub')
   private readonly rows: { time: HTMLElement; row: HTMLElement }[] = []
+  private readonly toastEl = $<HTMLElement>('#toast')
   private messageTimer: number | undefined
+  private toastTimer: number | undefined
   private lastBoardKey = ''
 
   constructor() {
@@ -162,5 +164,13 @@ export class Hud {
 
   hide(): void {
     this.message.parentElement!.classList.add('hidden')
+  }
+
+  /** Small transient notice, e.g. for audio toggles. */
+  toast(text: string): void {
+    window.clearTimeout(this.toastTimer)
+    this.toastEl.textContent = text
+    this.toastEl.classList.add('visible')
+    this.toastTimer = window.setTimeout(() => this.toastEl.classList.remove('visible'), 1400)
   }
 }

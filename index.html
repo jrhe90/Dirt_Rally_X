@@ -54,6 +54,10 @@
         <div class="tacho-speed"><span id="speed">0</span><small>KM/H</small></div>
       </div>
 
+      <div id="pacenotes" class="pace-card" aria-live="polite"></div>
+
+      <div id="toast" class="hud-toast"></div>
+
       <div class="message-wrap hidden">
         <div id="message" class="message"></div>
         <div id="message-sub" class="message-sub"></div>
@@ -61,7 +65,7 @@
 
       <div class="controls">
         <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive · <kbd>Space</kbd> handbrake · <kbd>C</kbd> camera ·
-        <kbd>R</kbd> recover · <kbd>T</kbd> restart · gamepad supported
+        <kbd>R</kbd> recover · <kbd>T</kbd> restart · <kbd>M</kbd> music · <kbd>N</kbd> co-driver · gamepad supported
       </div>
     </div>
 
@@ -73,6 +77,7 @@
       <div class="touch-group top">
         <button type="button" class="small" data-control="recover">RESET</button>
         <button type="button" class="small" data-control="camera">CAM</button>
+        <button type="button" class="small" id="touch-sound" aria-pressed="false">SOUND</button>
       </div>
       <div class="touch-group right">
         <button type="button" class="hb" data-control="handbrake">HB</button>
@@ -85,6 +90,25 @@
       <div class="overlay-title">DIRT RALLY</div>
       <div class="overlay-status">Building the stage…</div>
       <div class="spinner" aria-hidden="true"></div>
+      <form class="overlay-start" hidden>
+        <fieldset class="setting">
+          <legend>Co-driver <span lang="zh">领航员</span></legend>
+          <div class="segmented" data-setting="codriver">
+            <button type="button" data-value="zh" lang="zh">中文</button>
+            <button type="button" data-value="en">English</button>
+            <button type="button" data-value="off">Off</button>
+          </div>
+        </fieldset>
+        <fieldset class="setting">
+          <legend>Music <span lang="zh">音乐</span></legend>
+          <div class="segmented" data-setting="music">
+            <button type="button" data-value="on">On</button>
+            <button type="button" data-value="off">Off</button>
+          </div>
+        </fieldset>
+        <button type="submit" class="start-button">Start stage</button>
+        <p class="start-hint">Press <kbd>Enter</kbd> or tap Start · sound starts with the stage</p>
+      </form>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

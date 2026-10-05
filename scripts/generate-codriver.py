@@ -83,7 +83,7 @@ def tidy(x: np.ndarray, rate: int) -> np.ndarray:
 
 def render(lang: str, voices_dir: Path, lines: dict, phrases: list[str]) -> None:
     cfg = VOICES[lang]
-    voice = PiperVoice.load(str(ensure_voice(voices_dir, cfg["path"])))
+    voice = PiperVoice.load(str(ensure_voice(voices_dir, cfg["path"])), download_dir=voices_dir)
     rate = voice.config.sample_rate
     gap = np.zeros(int(GAP_SECONDS * rate), dtype=np.float32)
 

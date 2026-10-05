@@ -485,9 +485,253 @@ kbd {
   }
 }
 
+.pace-card {
+  position: absolute;
+  top: 1.2rem;
+  left: 50%;
+  display: flex;
+  gap: 0.5rem;
+  transform: translate(-50%, -0.6rem);
+  opacity: 0;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+}
+
+.pace-card.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.pace-note {
+  --tone: #fff;
+  position: relative;
+  display: grid;
+  justify-items: center;
+  min-width: 5.6rem;
+  padding: 0.45rem 0.8rem 0.5rem;
+  background: linear-gradient(180deg, rgba(8, 10, 14, 0.82), rgba(8, 10, 14, 0.55));
+  border-bottom: 3px solid var(--tone);
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%, 0 8px);
+}
+
+.pace-note[data-severity="1"],
+.pace-note[data-severity="2"],
+.pace-note.caution {
+  --tone: #ff5a3c;
+}
+
+.pace-note[data-severity="3"],
+.pace-note[data-severity="4"] {
+  --tone: #ffc23d;
+}
+
+.pace-note[data-severity="5"],
+.pace-note[data-severity="6"] {
+  --tone: #7fe08a;
+}
+
+.pace-main {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 3rem;
+}
+
+.pace-arrow {
+  width: 2.7rem;
+  height: 2.7rem;
+}
+
+.pace-arrow path {
+  fill: none;
+  stroke: var(--tone);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pace-arrow polygon {
+  fill: var(--tone);
+}
+
+.pace-num {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 2.9rem;
+  line-height: 1;
+  color: #fff;
+}
+
+.pace-word {
+  font-family: "Bebas Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 1.7rem;
+  letter-spacing: 0.06em;
+  color: #fff;
+}
+
+.pace-tags {
+  font-family: "Bebas Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+  color: var(--tone);
+}
+
+.pace-link {
+  position: absolute;
+  right: -0.1rem;
+  top: 0.2rem;
+  padding: 0 0.35rem;
+  font-family: "Bebas Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.hud-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 5.5rem;
+  transform: translateX(-50%);
+  padding: 0.35rem 0.9rem;
+  font-family: "Bebas Neue", "PingFang SC", sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.12em;
+  background: var(--panel);
+  border-left: 3px solid var(--accent);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.hud-toast.visible {
+  opacity: 1;
+}
+
+.overlay.ready {
+  background: radial-gradient(ellipse at center, rgba(26, 18, 12, 0.55) 0%, rgba(26, 18, 12, 0.88) 75%);
+}
+
+.overlay.ready .spinner,
+.overlay.ready .overlay-status {
+  display: none;
+}
+
+.overlay-start {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  margin-top: 0.4rem;
+}
+
+.overlay-start[hidden] {
+  display: none;
+}
+
+.setting {
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  border: 0;
+}
+
+.setting legend {
+  margin-bottom: 0.4rem;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dust);
+  text-align: center;
+}
+
+.segmented {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.segmented button {
+  min-width: 6.2rem;
+  padding: 0.55rem 1rem;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: rgba(22, 15, 10, 0.6);
+  color: var(--sand);
+  font: 600 0.95rem "IBM Plex Sans", "PingFang SC", sans-serif;
+  cursor: pointer;
+}
+
+.segmented button:last-child {
+  border-right: 0;
+}
+
+.segmented button:hover {
+  background: rgba(61, 42, 26, 0.85);
+}
+
+.segmented button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+.start-button {
+  margin-top: 0.5rem;
+  padding: 0.7rem 2.6rem;
+  border: 0;
+  background: var(--accent);
+  color: var(--ink);
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.7rem;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+}
+
+.start-button:hover,
+.start-button:focus-visible {
+  background: #ff8a4c;
+  outline: none;
+}
+
+.start-hint {
+  font-size: 0.8rem;
+  color: rgba(240, 230, 210, 0.7);
+}
+
 @media (pointer: coarse) {
   #touch {
     display: block;
+  }
+
+  .pace-card {
+    top: 10.2rem;
+  }
+
+  .pace-note {
+    min-width: 4.6rem;
+    padding: 0.35rem 0.6rem 0.4rem;
+  }
+
+  .pace-main {
+    height: 2.4rem;
+  }
+
+  .pace-arrow {
+    width: 2.1rem;
+    height: 2.1rem;
+  }
+
+  .pace-num {
+    font-size: 2.3rem;
+  }
+
+  .hud-toast {
+    bottom: auto;
+    top: 45%;
+  }
+
+  #touch button[aria-pressed="true"] {
+    background: rgba(232, 116, 58, 0.75);
   }
 
   .controls {
@@ -553,5 +797,10 @@ kbd {
   .controls {
     max-width: calc(100% - 1.6rem);
     bottom: 13rem;
+  }
+
+  .segmented button {
+    min-width: 5rem;
+    padding: 0.55rem 0.7rem;
   }
 }

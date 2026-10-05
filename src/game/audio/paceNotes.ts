@@ -237,6 +237,11 @@ export function buildPaceNotes(track: Track): PaceNote[] {
   return notes
 }
 
+/** On the final lap the last note leads to the finish line instead of the next corner. */
+export function finalLapCalls(note: PaceNote): ClipKey[] {
+  return [...note.calls.slice(0, note.link ? -1 : undefined), 'finish']
+}
+
 function callsFor(note: PaceNote): ClipKey[] {
   const head: ClipKey[] =
     note.kind === 'corner'

@@ -1,5 +1,7 @@
 import './style.css'
 import * as THREE from 'three'
+import { GameAudio, type RacePhase } from './game/audio/gameAudio'
+import { loadAudioSettings, type CodriverSetting } from './game/audio/settings'
 import { autopilot } from './game/autopilot'
 import { CameraRig } from './game/camera'
 import { DustSystem } from './game/dust'
@@ -12,6 +14,8 @@ import { createSceneryVisuals } from './game/graphics/scenery'
 import { createTerrainMesh } from './game/graphics/terrainMesh'
 import { formatTime, Hud } from './game/hud'
 import { initInput, readInput } from './game/input'
+import { PaceCard } from './game/paceCard'
+import { LAPS } from './game/race'
 import { createStage, PHYSICS_STEP, type Stage } from './game/stage'
 import { SURFACES } from './game/vehicle/config'
 import { CarModel } from './game/vehicle/carModel'
@@ -61,6 +65,48 @@ function createRenderer(quality: Quality): THREE.WebGLRenderer {
   }
 }
 
+/** Start screen with co-driver and music choices; resolves on Start (a user gesture, so audio can unlock). */
+function waitForStart(audio: GameAudio): Promise<void> {
+  const form = overlay.querySelector<HTMLFormElement>('.overlay-start')!
+  const groups = form.querySelectorAll<HTMLElement>('[data-setting]')
+  const sync = () => {
+    const { codriver, music } = audio.current
+    for (const group of groups) {
+      const value = group.dataset.setting === 'codriver' ? codriver : music ? 'on' : 'off'
+      for (const b of group.querySelectorAll<HTMLButtonElement>('button')) {
+        b.setAttribute('aria-pressed', String(b.dataset.value === value))
+      }
+    }
+  }
+  for (const group of groups) {
+    group.addEventListener('click', (e) => {
+      const value = (e.target as HTMLElement).closest<HTMLButtonElement>('button')?.dataset.value
+      if (!value) return
+      const settings = audio.current
+      if (group.dataset.setting === 'codriver') settings.codriver = value as CodriverSetting
+      else settings.music = value === 'on'
+      audio.update(settings)
+      sync()
+    })
+  }
+  sync()
+  overlay.classList.add('ready')
+  form.hidden = false
+  form.querySelector<HTMLButtonElement>('.start-button')!.focus()
+
+  return new Promise((resolve) => {
+    form.addEventListener(
+      'submit',
+      (e) => {
+        e.preventDefault()
+        audio.start()
+        resolve()
+      },
+      { once: true },
+    )
+  })
+}
+
 function buildScene(renderer: THREE.WebGLRenderer, stage: Stage, assets: GameAssets, quality: Quality) {
   const scene = new THREE.Scene()
   const env = createEnvironment(renderer, scene, assets.hdr, quality)
@@ -104,7 +150,18 @@ async function main() {
   const rig = new CameraRig(window.innerWidth / window.innerHeight, terrain)
   const post = new PostFx(renderer, scene, rig.camera, quality)
   const hud = new Hud()
+  const paceCard = new PaceCard()
+  const audio = new GameAudio(stage.track, LAPS, loadAudioSettings(params), paceCard.show)
+  void audio.preload()
   initInput(document.querySelector('#touch'))
+
+  const soundButton = document.querySelector<HTMLButtonElement>('#touch-sound')!
+  soundButton.addEventListener('click', () => {
+    audio.start()
+    const muted = audio.toggleMute()
+    soundButton.setAttribute('aria-pressed', String(muted))
+    soundButton.textContent = muted ? 'MUTED' : 'SOUND'
+  })
 
   const resize = () => {
     const w = window.innerWidth
@@ -118,8 +175,7 @@ async function main() {
   window.addEventListener('resize', resize)
   resize()
 
-  type Phase = 'countdown' | 'racing' | 'finished'
-  let phase: Phase = 'countdown'
+  let phase: RacePhase = 'waiting'
   let countdown = COUNTDOWN
   let accumulator = 0
   let flippedFor = 0
@@ -138,6 +194,8 @@ async function main() {
     phase = 'countdown'
     countdown = COUNTDOWN
     lastCount = -1
+    paceCard.hide()
+    audio.restart(race.progress)
   }
 
   const recover = () => {
@@ -145,12 +203,12 @@ async function main() {
     placeCar(race.recoveryPose(vehicle.position))
     flippedFor = 0
     hud.hide()
+    audio.recovered(race.progress)
   }
 
-  restart()
+  placeCar(Number.isFinite(startAt) ? race.recoveryPose(stage.track.pointAt(startAt).position) : race.startPose())
   // Compile every shader before the overlay fades so the first frames do not hitch.
   await renderer.compileAsync(scene, rig.camera)
-  overlay.classList.add('done')
 
   const HOLD: DriveControls = { throttle: 0, brake: 0, steer: 0, handbrake: 1 }
   const STOP: DriveControls = { throttle: 0, brake: 1, steer: 0, handbrake: 0 }
@@ -162,20 +220,26 @@ async function main() {
     const dt = Math.min(timer.getDelta(), 0.05)
     const input = readInput(dt)
 
-    if (input.restart) restart()
-    else if (input.recover) recover()
+    if (phase !== 'waiting') {
+      if (input.restart) restart()
+      else if (input.recover) recover()
+    }
     if (input.cycleCamera) rig.cycle()
+    if (input.toggleMusic) hud.toast(audio.toggleMusic())
+    if (input.cycleCodriver) hud.toast(audio.cycleCodriver())
 
     if (phase === 'countdown') {
       countdown -= dt
       const n = Math.ceil(countdown)
       if (n !== lastCount && n > 0) {
         hud.show(String(n))
+        audio.countdown(n)
         lastCount = n
       }
       if (countdown <= 0) {
         phase = 'racing'
         hud.show('GO', '', 700)
+        audio.countdown(0)
       }
     }
 
@@ -197,6 +261,7 @@ async function main() {
     if (phase === 'racing' && race.finished) {
       phase = 'finished'
       hud.show('STAGE CLEAR', `${formatTime(race.time)} · press T or RESET to run it again`)
+      audio.finished()
     }
 
     if (phase === 'racing') {
@@ -236,8 +301,19 @@ async function main() {
       surface: vehicle.surface,
     })
 
+    audio.frame(phase, race.progress, speed)
     post.render(dt)
   })
+
+  if (demo) {
+    overlay.classList.add('done')
+    audio.engine.unlockOnFirstGesture()
+    audio.start()
+  } else {
+    await waitForStart(audio)
+    overlay.classList.add('done')
+  }
+  restart()
 }
 
 main()
