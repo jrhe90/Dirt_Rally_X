@@ -61,7 +61,7 @@ const LAYER_LEVELS: Record<LayerName, number> = {
   pad: 0.16,
   arp: 0.11,
   hats: 0.3,
-  drums: 0.9,
+  drums: 0.75,
   bass: 0.42,
   guitar: 0.2,
   lead: 0.12,
@@ -425,7 +425,7 @@ export class Music {
     for (const [type, detune, octave, level] of [
       ['sawtooth', -7, 0, 0.5],
       ['sawtooth', 7, 0, 0.5],
-      ['sine', 0, -12, 0.8],
+      ['sine', 0, -12, 0.45],
     ] as const) {
       const osc = ctx.createOscillator()
       osc.type = type

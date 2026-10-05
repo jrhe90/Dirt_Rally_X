@@ -85,7 +85,7 @@ export class PaceCard {
   show = (spoken: SpokenCall[], lang: CodriverLanguage): void => {
     const labels = LABELS[lang]
     const shown = spoken.filter(({ note, calls }) => note || labels[calls[0]])
-    const items = shown.map(({ note, calls }) => {
+    const items = shown.flatMap(({ note, calls }) => {
       const el = document.createElement('div')
       el.className = 'pace-note'
       const main = document.createElement('div')
@@ -122,13 +122,11 @@ export class PaceCard {
         t.textContent = tags.join(' · ')
         el.append(t)
       }
-      if (link) {
-        const l = document.createElement('div')
-        l.className = 'pace-link'
-        l.textContent = link
-        el.append(l)
-      }
-      return el
+      if (!link) return [el]
+      const join = document.createElement('div')
+      join.className = 'pace-link'
+      join.textContent = link
+      return [el, join]
     })
     if (!items.length) return
 

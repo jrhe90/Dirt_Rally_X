@@ -1,5 +1,7 @@
-const MUSIC_LEVEL = 0.55
-const DUCKED_LEVEL = 0.38
+const MUSIC_LEVEL = 0.42
+/** About 8 dB under the co-driver. */
+const DUCKED_LEVEL = 0.17
+const MASTER_LEVEL = 0.8
 
 /** Soft-clipping curve; `drive` sets how hard it saturates. */
 export function saturationCurve(drive: number, size = 2048): Float32Array<ArrayBuffer> {
@@ -23,6 +25,8 @@ export class AudioEngine {
   readonly sfx: GainNode
   /** Two seconds of white noise shared by drums, risers and intercom hiss. */
   readonly noise: AudioBuffer
+  /** Final mix after the master compressor, for recording or analysis. */
+  readonly output: AudioNode
   private readonly master: GainNode
   private readonly musicLevel: GainNode
   private musicOn = true
@@ -39,10 +43,14 @@ export class AudioEngine {
     compressor.ratio.value = 4
     compressor.attack.value = 0.004
     compressor.release.value = 0.25
-    compressor.connect(ctx.destination)
+    // The browser compressor adds automatic make-up gain, so trim after it.
+    const trim = ctx.createGain()
+    trim.gain.value = 0.62
+    compressor.connect(trim).connect(ctx.destination)
+    this.output = trim
 
     this.master = ctx.createGain()
-    this.master.gain.value = 0.9
+    this.master.gain.value = MASTER_LEVEL
     this.master.connect(compressor)
 
     this.musicLevel = ctx.createGain()
@@ -83,7 +91,7 @@ export class AudioEngine {
     lowpass.frequency.value = 3600
     lowpass.Q.value = 0.9
     const out = ctx.createGain()
-    out.gain.value = 1.15
+    out.gain.value = 1.6
     highpass.connect(presence).connect(drive).connect(lowpass).connect(out).connect(this.master)
     return highpass
   }
@@ -125,7 +133,7 @@ export class AudioEngine {
 
   setMuted(muted: boolean): void {
     this.muted = muted
-    this.master.gain.setTargetAtTime(muted ? 0 : 0.9, this.ctx.currentTime, 0.05)
+    this.master.gain.setTargetAtTime(muted ? 0 : MASTER_LEVEL, this.ctx.currentTime, 0.05)
   }
 
   get isMuted(): boolean {
