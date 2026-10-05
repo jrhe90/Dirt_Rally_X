@@ -276,7 +276,6 @@ function paintTop({ ctx, mask }: Painter, r: Region) {
   screen(0.04, 0.74)
   screen(-1.85, -1.56)
   rect(ctx, r, 0.04, -0.62, 0.15, 0.62, BLUE)
-  text(ctx, r, 'KALTENBACH RALLY', 0.095, 0, 0.07, WHITE, '"Bebas Neue", Impact, sans-serif', 'bold', false)
 }
 
 function paintFront({ ctx, mask }: Painter, r: Region) {
@@ -330,6 +329,7 @@ function paintFront({ ctx, mask }: Painter, r: Region) {
     poly(target, r, [[-0.66, 0.34], [0.66, 0.34], [0.58, 0.76], [-0.58, 0.76]], target === mask ? '#ff0000' : GLASS)
   }
   rect(ctx, r, -0.6, 0.68, 0.6, 0.76, BLUE)
+  text(ctx, r, 'KALTENBACH RALLY', 0, 0.72, 0.055, WHITE, '"Bebas Neue", Impact, sans-serif', 'bold', false)
 }
 
 function paintRear({ ctx, mask }: Painter, r: Region) {

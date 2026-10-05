@@ -61,8 +61,9 @@ function createTrees(placements: Placement[], assets: GameAssets): THREE.Group {
     map: needles,
     alphaTest: 0.42,
     side: THREE.DoubleSide,
-    roughness: 0.88,
+    roughness: 1,
     metalness: 0,
+    envMapIntensity: 0.55,
   })
   foliageMat.onBeforeCompile = (shader) => {
     keepCardNormals(shader)
@@ -77,8 +78,9 @@ function createTrees(placements: Placement[], assets: GameAssets): THREE.Group {
     normalMap: bark.nor,
     roughnessMap: bark.arm,
     roughness: 1,
-    color: 0xb8a898,
+    color: 0x8a7a6c,
   })
+  const coreMat = new THREE.MeshStandardMaterial({ color: 0x1a2614, roughness: 1, envMapIntensity: 0.4 })
 
   const byVariant: Placement[][] = Array.from({ length: TREE_VARIANTS }, () => [])
   for (const p of placements) byVariant[p.variant % TREE_VARIANTS].push(p)
@@ -86,23 +88,28 @@ function createTrees(placements: Placement[], assets: GameAssets): THREE.Group {
   const m = new THREE.Matrix4()
   const q = new THREE.Quaternion()
   const color = new THREE.Color()
-  const dark = new THREE.Color(0x7a8a70)
-  const warm = new THREE.Color(0xc8c8a0)
+  const dark = new THREE.Color(0x5c6e50)
+  const warm = new THREE.Color(0x9ea47c)
 
   byVariant.forEach((list, v) => {
     if (list.length === 0) return
-    const { trunk, foliage } = buildTree(mulberry32(100 + v * 17), 13 + v * 1.5)
+    const height = 13 + v * 1.5
+    const { trunk, foliage } = buildTree(mulberry32(100 + v * 17), height)
+    // Opaque dark core hides the gaps between branch cards so the crown reads as dense.
+    const core = new THREE.ConeGeometry(height * 0.1, height * 0.7, 8, 1, true).translate(0, height * 0.55, 0)
     const trunkMesh = new THREE.InstancedMesh(trunk, trunkMat, list.length)
     const foliageMesh = new THREE.InstancedMesh(foliage, foliageMat, list.length)
+    const coreMesh = new THREE.InstancedMesh(core, coreMat, list.length)
     list.forEach((p, i) => {
       q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, p.rotation)
       m.compose(p.position.clone().setY(p.position.y - 0.15), q, p.scale)
       trunkMesh.setMatrixAt(i, m)
       foliageMesh.setMatrixAt(i, m)
+      coreMesh.setMatrixAt(i, m)
       color.copy(dark).lerp(warm, p.tint * 0.6).multiplyScalar(1.05)
       foliageMesh.setColorAt(i, color)
     })
-    for (const mesh of [trunkMesh, foliageMesh]) {
+    for (const mesh of [trunkMesh, coreMesh, foliageMesh]) {
       mesh.castShadow = true
       mesh.receiveShadow = true
       mesh.computeBoundingSphere()
@@ -123,7 +130,7 @@ function buildTree(rng: () => number, height: number) {
   const uv: number[] = []
   const up = new THREE.Vector3(0, 1, 0)
   const radius = height * 0.23
-  const whorls = 13
+  const whorls = 18
 
   const pushVertex = (p: THREE.Vector3, u: number, v: number, centerY: number) => {
     pos.push(p.x, p.y, p.z)
@@ -165,13 +172,13 @@ function buildTree(rng: () => number, height: number) {
     const f = k / (whorls - 1)
     const y = height * (0.16 + 0.76 * f) + (rng() - 0.5) * 0.3
     const r = radius * Math.pow(1 - f * 0.92, 0.9) + 0.35
-    const count = f > 0.8 ? 4 : f > 0.5 ? 5 : 7
+    const count = f > 0.8 ? 5 : f > 0.5 ? 7 : 8
     const offset = rng() * Math.PI * 2
     for (let j = 0; j < count; j++) {
       const a = offset + (j / count) * Math.PI * 2 + (rng() - 0.5) * 0.5
       const dir = new THREE.Vector3(Math.cos(a), 0.08 + rng() * 0.12, Math.sin(a)).normalize()
       const len = r * (0.8 + rng() * 0.35)
-      card(new THREE.Vector3(dir.x * 0.08, y, dir.z * 0.08), dir, len, Math.max(0.9, len * 0.85), 0.5 + rng() * 0.35, (rng() - 0.5) * 1.1)
+      card(new THREE.Vector3(dir.x * 0.08, y, dir.z * 0.08), dir, len, Math.max(1.0, len * 0.95), 0.45 + rng() * 0.35, (rng() - 0.5) * 1.2)
     }
   }
   for (let j = 0; j < 3; j++) {
@@ -206,10 +213,10 @@ function createNeedleTexture(): THREE.CanvasTexture {
   ctx.lineTo(w * 0.97, h / 2)
   ctx.stroke()
 
-  for (let i = 0; i < 70; i++) {
-    const t = i / 70
+  for (let i = 0; i < 90; i++) {
+    const t = i / 90
     const x = t * w * 0.95
-    const reach = envelope(t) * (h / 2 - 8)
+    const reach = envelope(t) * (h / 2 - 4)
     for (const s of [-1, 1]) {
       const angle = (0.55 + rng() * 0.35) * s
       const len = reach * (0.75 + rng() * 0.3)
@@ -222,15 +229,15 @@ function createNeedleTexture(): THREE.CanvasTexture {
       ctx.lineTo(ex, ey)
       ctx.stroke()
 
-      for (let k = 0; k < 16; k++) {
-        const u = k / 16
+      for (let k = 0; k < 22; k++) {
+        const u = k / 22
         const px = x + (ex - x) * u
         const py = h / 2 + (ey - h / 2) * u
         for (const side of [-1, 1]) {
           const a = angle * 0.4 + side * (0.9 + rng() * 0.5)
-          const nl = 7 + rng() * 9
+          const nl = 9 + rng() * 11
           const shade = rng()
-          const g = Math.floor(52 + shade * 52)
+          const g = Math.floor(40 + shade * 50)
           ctx.strokeStyle = `rgb(${Math.floor(g * 0.52)},${g},${Math.floor(g * 0.38)})`
           ctx.lineWidth = 2.2
           ctx.beginPath()

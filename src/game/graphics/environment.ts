@@ -15,6 +15,8 @@ export function createEnvironment(
   quality: Quality,
 ): Environment {
   hdr.mapping = THREE.EquirectangularReflectionMapping
+  const { direction: sunDirection, horizon } = analyzeHdr(hdr)
+  clampSun(hdr, 18)
   const pmrem = new THREE.PMREMGenerator(renderer)
   scene.environment = pmrem.fromEquirectangular(hdr).texture
   pmrem.dispose()
@@ -22,7 +24,6 @@ export function createEnvironment(
   scene.environmentIntensity = 0.75
   scene.backgroundIntensity = 0.85
 
-  const { direction: sunDirection, horizon } = analyzeHdr(hdr)
   const fogColor = horizon.multiplyScalar(0.85)
   scene.fog = new THREE.FogExp2(fogColor, 0.0032)
 
@@ -54,6 +55,22 @@ export function createEnvironment(
       sun.position.set(x + offset.x, target.y + offset.y, z + offset.z)
     },
   }
+}
+
+/**
+ * The directional light already provides the sun, so the HDRI's sun disc is clamped to keep it
+ * from being counted twice and from blowing out glossy reflections.
+ */
+function clampSun(hdr: THREE.DataTexture, max: number): void {
+  const data = hdr.image.data as Uint16Array | Float32Array
+  if (hdr.type === THREE.HalfFloatType) {
+    const limit = THREE.DataUtils.toHalfFloat(max)
+    // Positive half floats order the same as their bit patterns.
+    for (let i = 0; i < data.length; i++) if ((data[i] & 0x8000) === 0 && data[i] > limit) data[i] = limit
+  } else {
+    for (let i = 0; i < data.length; i++) if (data[i] > max) data[i] = max
+  }
+  hdr.needsUpdate = true
 }
 
 /** Finds the sun as the brightest region of the HDRI and averages the sky just above the horizon. */

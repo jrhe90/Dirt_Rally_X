@@ -4,6 +4,7 @@ import type { PbrSet } from './assets'
 export type SplatLayer = PbrSet & {
   /** Texture repeats per meter. */
   scale: number
+  tint?: THREE.Color
 }
 
 export type SplatOptions = {
@@ -42,6 +43,9 @@ export function createSplatMaterial(
     tArm2: { value: layers[2].arm },
     uScale: { value: new THREE.Vector3(layers[0].scale, layers[1].scale, layers[2].scale) },
     uSharp: { value: 6 },
+    uTint0: { value: layers[0].tint ?? new THREE.Color(1, 1, 1) },
+    uTint1: { value: layers[1].tint ?? new THREE.Color(1, 1, 1) },
+    uTint2: { value: layers[2].tint ?? new THREE.Color(1, 1, 1) },
   }
 
   material.onBeforeCompile = (shader) => {
@@ -83,6 +87,9 @@ export function createSplatMaterial(
         uniform sampler2D tArm2;
         uniform vec3 uScale;
         uniform float uSharp;
+        uniform vec3 uTint0;
+        uniform vec3 uTint1;
+        uniform vec3 uTint2;
         varying vec3 vSplat;
         #ifdef SPLAT_RUTS
           varying float vLateral;
@@ -112,9 +119,9 @@ export function createSplatMaterial(
         w = pow(w, vec3(uSharp));
         splatW = w / (w.x + w.y + w.z);
 
-        vec3 albedo = splatDiffuse(tDiff0, uv0) * splatW.x
-          + splatDiffuse(tDiff1, uv1) * splatW.y
-          + splatDiffuse(tDiff2, uv2) * splatW.z;
+        vec3 albedo = splatDiffuse(tDiff0, uv0) * uTint0 * splatW.x
+          + splatDiffuse(tDiff1, uv1) * uTint1 * splatW.y
+          + splatDiffuse(tDiff2, uv2) * uTint2 * splatW.z;
         float ao = dot(height, splatW);
         splatRough = arm0.g * splatW.x + arm1.g * splatW.y + arm2.g * splatW.z;
 

@@ -49,7 +49,7 @@ export function createTerrainMesh(terrain: Terrain, assets: GameAssets): THREE.M
     [
       { ...grass, scale: 1 / 4 },
       { ...ground, scale: 1 / 2.5 },
-      { ...cliff, scale: 1 / 7 },
+      { ...cliff, scale: 1 / 7, tint: new THREE.Color(0.72, 0.8, 0.9) },
     ],
     { vertexColors: true },
   )

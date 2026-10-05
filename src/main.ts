@@ -24,7 +24,16 @@ const FLIPPED_HINT_DELAY = 2
 const overlay = document.querySelector<HTMLDivElement>('#loading')!
 const overlayStatus = overlay.querySelector<HTMLDivElement>('.overlay-status')!
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
-const demo = new URLSearchParams(window.location.search).has('demo')
+const params = new URLSearchParams(window.location.search)
+const demo = params.has('demo')
+/** Debug aid: start the car this many meters into the stage. */
+const startAt = Number(params.get('at') ?? NaN)
+/** Debug aid: frame the car from the side or front instead of the chase camera. */
+const debugView = params.get('view')
+const DEBUG_VIEWS: Record<string, THREE.Vector3> = {
+  side: new THREE.Vector3(-5.2, 0.7, 1.2),
+  front: new THREE.Vector3(-2.4, 0.9, 5.6),
+}
 
 function fail(message: string): never {
   overlay.classList.add('error')
@@ -125,7 +134,7 @@ async function main() {
 
   const restart = () => {
     race.reset()
-    placeCar(race.startPose())
+    placeCar(Number.isFinite(startAt) ? race.recoveryPose(stage.track.pointAt(startAt).position) : race.startPose())
     phase = 'countdown'
     countdown = COUNTDOWN
     lastCount = -1
@@ -207,6 +216,10 @@ async function main() {
     dust.emitFromVehicle(vehicle, dt)
     dust.update(dt)
     rig.update(dt, vehicle)
+    if (debugView && DEBUG_VIEWS[debugView]) {
+      rig.camera.position.copy(DEBUG_VIEWS[debugView]).applyQuaternion(car.group.quaternion).add(pos)
+      rig.camera.lookAt(pos)
+    }
     dust.setViewport(window.innerHeight * renderer.getPixelRatio(), rig.camera.fov)
     env.follow(pos)
     scenery.update(timer.getElapsed())

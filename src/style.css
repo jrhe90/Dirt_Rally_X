@@ -262,7 +262,7 @@ body {
 .tacho-gear {
   position: absolute;
   left: 50%;
-  top: 58%;
+  top: 66%;
   transform: translate(-50%, -50%);
   min-width: 2.7rem;
   padding: 0.1rem 0.5rem;

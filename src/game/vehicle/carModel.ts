@@ -33,8 +33,8 @@ const LIVERY_GLSL = /* glsl */ `
 
   float dn = texture2D(tDirt, p.zy * 1.1).r * tw.x + texture2D(tDirt, p.zx * 1.1).r * tw.y + texture2D(tDirt, p.xy * 1.1).r * tw.z;
   float low = smoothstep(0.55, -0.42, p.y);
-  carDirt = clamp(uDirt * (0.2 + low * 1.15) * (0.25 + dn * 1.5) - 0.12, 0.0, 1.0) * (1.0 - carGlass * 0.55);
-  base = mix(base, vec3(0.36, 0.27, 0.17), carDirt * 0.92);
+  carDirt = clamp(uDirt * (0.15 + low * 1.2) * (0.55 + dn * 0.9) - 0.1, 0.0, 1.0) * (1.0 - carGlass * 0.55);
+  base = mix(base, vec3(0.46, 0.36, 0.26), carDirt * 0.85);
   diffuseColor.rgb *= base;
 `
 
@@ -119,7 +119,7 @@ export class CarModel {
         .replace('#include <map_fragment>', LIVERY_GLSL)
         .replace(
           'float roughnessFactor = roughness;',
-          /* glsl */ `float roughnessFactor = mix(roughness, 0.03, carGlass);
+          /* glsl */ `float roughnessFactor = mix(roughness, 0.07, carGlass);
           roughnessFactor = mix(roughnessFactor, 0.6, carMatte * (1.0 - carGlass));
           roughnessFactor = mix(roughnessFactor, 0.18, carChrome * (1.0 - carGlass));
           roughnessFactor = mix(roughnessFactor, 0.95, carDirt);`,
@@ -129,8 +129,16 @@ export class CarModel {
           'float metalnessFactor = mix(metalness, 0.9, carChrome * (1.0 - carGlass));',
         )
         .replace(
+          '#include <lights_physical_fragment>',
+          /* glsl */ `#include <lights_physical_fragment>
+          // Tinted glass reads darker in games than physically neutral glass would.
+          material.specularColor *= 1.0 - 0.7 * carGlass;
+          material.specularColorBlended *= 1.0 - 0.7 * carGlass;
+          material.specularF90 *= 1.0 - 0.7 * carGlass;`,
+        )
+        .replace(
           'material.clearcoat = clearcoat;',
-          'material.clearcoat = clearcoat * (1.0 - carMatte) * (1.0 - carDirt);',
+          'material.clearcoat = clearcoat * (1.0 - carMatte) * (1.0 - carDirt) * (1.0 - 0.85 * carGlass);',
         )
     }
     paint.customProgramCacheKey = () => 'car-livery'
@@ -171,9 +179,11 @@ export class CarModel {
     wingGeo.rotateY(-Math.PI / 2)
     add(wingGeo, carbon, 0, 0.9, -1.46, 0.06)
     for (const s of [-1, 1]) {
-      add(new THREE.BoxGeometry(0.014, 0.2, 0.44), blue, s * 0.755, 0.9, -1.67)
+      add(new THREE.BoxGeometry(0.014, 0.17, 0.42), carbon, s * 0.755, 0.89, -1.66)
+      add(new THREE.BoxGeometry(0.016, 0.03, 0.42), blue, s * 0.755, 0.985, -1.66)
       add(new THREE.BoxGeometry(0.022, 0.18, 0.16), carbon, s * 0.34, 0.8, -1.6)
     }
+    add(new THREE.BoxGeometry(1.22, 0.025, 0.26), carbon, 0, topY(-1.45) + 0.005, -1.52, -0.32)
 
     // Mirrors.
     for (const s of [-1, 1]) {
@@ -198,7 +208,7 @@ export class CarModel {
     add(new THREE.BoxGeometry(1.0, 0.02, 1.1), alloy, 0, -0.41, 1.25)
     for (const s of [-1, 1]) {
       for (const cz of [CAR.frontAxle, CAR.rearAxle]) {
-        add(new THREE.BoxGeometry(0.3, 0.24, 0.012), blue, s * 0.78, -0.47, cz - 0.5)
+        add(new THREE.BoxGeometry(0.24, 0.22, 0.012), matte, s * 0.72, -0.47, cz - 0.5)
       }
     }
     add(new THREE.CylinderGeometry(0.045, 0.05, 0.2, 14, 1, true), pipeMat, -0.5, -0.33, -1.95, Math.PI / 2)
