@@ -76,6 +76,7 @@ export class Vehicle {
   private readonly surfaceAt: SurfaceResolver
   private readonly ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 })
   private cornerMass = CAR.mass / 4
+  private cabin: RAPIER.Collider
 
   constructor(world: RAPIER.World, surfaceAt: SurfaceResolver, position: THREE.Vector3, yaw: number) {
     this.world = world
@@ -97,10 +98,7 @@ export class Vehicle {
       RAPIER.ColliderDesc.cuboid(he.x, he.y, he.z).setDensity(0).setFriction(0.35).setRestitution(0.1),
       this.body,
     )
-    world.createCollider(
-      RAPIER.ColliderDesc.cuboid(0.68, 0.22, 0.85).setTranslation(0, 0.48, -0.2).setDensity(0).setFriction(0.4),
-      this.body,
-    )
+    this.cabin = this.createCabin()
 
     const layout: [number, number, boolean, boolean][] = [
       [CAR.halfTrack, CAR.frontAxle, true, true],
@@ -127,8 +125,18 @@ export class Vehicle {
     }))
   }
 
-  /** Picks up mass and inertia after `CAR` changes; the wheel layout is shared by every car. */
+  private createCabin(): RAPIER.Collider {
+    const { halfExtents: h, center: c } = CAR.cabin
+    return this.world.createCollider(
+      RAPIER.ColliderDesc.cuboid(h.x, h.y, h.z).setTranslation(c.x, c.y, c.z).setDensity(0).setFriction(0.4),
+      this.body,
+    )
+  }
+
+  /** Picks up mass, inertia and cabin size after `CAR` changes; the wheel layout is shared by every car. */
   applyCar(): void {
+    this.world.removeCollider(this.cabin, true)
+    this.cabin = this.createCabin()
     this.cornerMass = CAR.mass / 4
     this.body.setAdditionalMassProperties(CAR.mass, CAR.centerOfMass, CAR.inertia, { x: 0, y: 0, z: 0, w: 1 }, true)
     for (const w of this.wheels) w.local.y = CAR.mountY

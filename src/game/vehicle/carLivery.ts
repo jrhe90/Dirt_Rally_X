@@ -7,7 +7,7 @@ import { BODY, beltY, bodyStyle, halfWidthAt, topY } from './carShape'
  * Livery atlas, 2048 x 2048, painted in car-local meters. The body shader projects it in object
  * space, so these region mappings must match `LIVERY_GLSL` in carModel.ts.
  *
- *   right side (-x)  rows    0..512    px = (z + 2.1) / 4.2 * 2048   py = (0.9 - y) / 1.4 * 512
+ *   right side (-x)  rows    0..512    px = (z + 2.1) / 4.2 * 2048   py = (1.25 - y) / 1.85 * 512
  *   left side (+x)   rows  512..1024   px = (2.1 - z) / 4.2 * 2048
  *   top              rows 1024..1536   px = (z + 2.1) / 4.2 * 2048   py = (1 - x) / 2 * 512
  *   front            cols    0..1024, rows 1536..2048   px = (x + 1) / 2 * 1024
@@ -16,7 +16,7 @@ import { BODY, beltY, bodyStyle, halfWidthAt, topY } from './carShape'
 
 const SIZE = 2048
 const SIDE_SX = SIZE / 4.2
-const SIDE_SY = 512 / 1.4
+const SIDE_SY = 512 / 1.85
 
 /** Number plates and crew names stay white with black print whatever the paint. */
 const WHITE = '#f2f2ef'
@@ -36,11 +36,11 @@ type Region = {
 }
 
 const regions = {
-  right: region(SIDE_SX, -SIDE_SY, 2.1 * SIDE_SX, 0.9 * SIDE_SY),
-  left: region(-SIDE_SX, -SIDE_SY, 2.1 * SIDE_SX, 512 + 0.9 * SIDE_SY),
+  right: region(SIDE_SX, -SIDE_SY, 2.1 * SIDE_SX, 1.25 * SIDE_SY),
+  left: region(-SIDE_SX, -SIDE_SY, 2.1 * SIDE_SX, 512 + 1.25 * SIDE_SY),
   top: region(SIDE_SX, -256, 2.1 * SIDE_SX, 1024 + 256),
-  front: region(512, -SIDE_SY, 512, 1536 + 0.9 * SIDE_SY),
-  rear: region(-512, -SIDE_SY, 1024 + 512, 1536 + 0.9 * SIDE_SY),
+  front: region(512, -SIDE_SY, 512, 1536 + 1.25 * SIDE_SY),
+  rear: region(-512, -SIDE_SY, 1024 + 512, 1536 + 1.25 * SIDE_SY),
 }
 
 function region(sx: number, sy: number, ox: number, oy: number): Region {
@@ -227,18 +227,22 @@ function paintSide({ ctx, mask }: Painter, r: Region) {
       target.closePath()
       target.stroke()
     })
-    const b = bodyStyle().bPillar
-    rect(target, r, b + 0.04, windowBottom(b + 0.04) - 0.01, b - 0.05, windowTop(b) + 0.01, target === mask ? '#00ff00' : '#111214')
+    for (const b of bodyStyle().pillars) {
+      rect(target, r, b + 0.04, windowBottom(b + 0.04) - 0.01, b - 0.05, windowTop(b) + 0.01, target === mask ? '#00ff00' : '#111214')
+    }
   }
-  // Crew names sit between the B-pillar and the rear of the side glass.
-  const crewZ = (zRear + bodyStyle().bPillar - 0.05) / 2
+  // Crew names sit between the last pillar and the rear of the side glass.
+  const crewZ = (zRear + bodyStyle().pillars.at(-1)! - 0.05) / 2
   text(ctx, r, S.crew, crewZ, windowBottom(crewZ) + 0.06, 0.045, WHITE, 'Arial, sans-serif', 'bold', false)
 
   // Lamp corners seen from the side.
   for (const target of [ctx, mask]) {
     const lens = target === mask ? '#ff0000' : '#a8121a'
-    if (bodyStyle().kind === 'coupe') {
+    const kind = bodyStyle().kind
+    if (kind === 'coupe') {
       rect(target, r, -2.0, 0.12, -1.9, 0.19, lens)
+    } else if (kind === 'suv') {
+      rect(target, r, -2.0, -0.05, -1.93, 0.3, lens)
     } else {
       poly(target, r, [[1.72, 0.17], [2.0, 0.1], [2.03, 0.04], [1.85, 0.07]], target === mask ? '#ff0000' : '#2a3138')
       rect(target, r, -1.99, 0.18, -1.9, 0.48, lens)
@@ -288,8 +292,9 @@ function paintTop({ ctx, mask }: Painter, r: Region) {
   }
   const { windscreen, rearScreen } = bodyStyle()
   screen(...windscreen)
-  screen(...rearScreen)
-  rect(ctx, r, windscreen[0], -0.62, windscreen[0] + 0.11, 0.62, S.primary)
+  if (rearScreen) screen(...rearScreen)
+  // Sun strip, where the windscreen is raked enough to see it from above.
+  if (windscreen[1] - windscreen[0] > 0.3) rect(ctx, r, windscreen[0], -0.62, windscreen[0] + 0.11, 0.62, S.primary)
   if (bodyStyle().kind === 'coupe') {
     // Engine-lid grille louvres behind the rear screen.
     for (let z = -1.3; z > -1.62; z -= 0.045) rect(ctx, r, z, -0.3, z - 0.022, 0.3, '#151517')
@@ -336,32 +341,48 @@ function paintFront({ ctx, mask }: Painter, r: Region) {
   }
   rect(ctx, r, -0.22, -0.2, 0.22, -0.1, WHITE)
   text(ctx, r, plate(), 0, -0.15, 0.075, BLACK, 'Arial, sans-serif', 'bold', false)
-  // Headlamps.
-  for (const target of [ctx, mask]) {
-    for (const s of [-1, 1]) {
-      poly(target, r, [[s * 0.32, 0.1], [s * 0.74, 0.07], [s * 0.78, 0.16], [s * 0.42, 0.17]], target === mask ? '#ff00ff' : '#30363c')
+  if (bodyStyle().kind === 'suv') {
+    // Slatted grille between the round headlamps (which are separate meshes).
+    rect(ctx, r, -0.46, 0.05, 0.46, 0.32, '#0c0c0e')
+    for (let y = 0.08; y < 0.31; y += 0.045) rect(ctx, r, -0.44, y, 0.44, y + 0.02, '#3a3c40')
+  } else {
+    // Headlamps.
+    for (const target of [ctx, mask]) {
+      for (const s of [-1, 1]) {
+        poly(target, r, [[s * 0.32, 0.1], [s * 0.74, 0.07], [s * 0.78, 0.16], [s * 0.42, 0.17]], target === mask ? '#ff00ff' : '#30363c')
+      }
     }
   }
   // Windscreen as seen head-on.
-  const top = bodyStyle().windscreenTop
+  const [bottom, top] = bodyStyle().windscreenFront
   for (const target of [ctx, mask]) {
-    poly(target, r, [[-0.66, 0.34], [0.66, 0.34], [0.58, top], [-0.58, top]], target === mask ? '#ff0000' : GLASS)
+    poly(target, r, [[-0.66, bottom], [0.66, bottom], [0.58, top], [-0.58, top]], target === mask ? '#ff0000' : GLASS)
   }
   rect(ctx, r, -0.6, top - 0.08, 0.6, top, S.primary)
   text(ctx, r, 'KALTENBACH RALLY', 0, top - 0.04, 0.055, S.base, '"Bebas Neue", Impact, sans-serif', 'bold', false)
 }
 
 function paintRear({ ctx, mask }: Painter, r: Region) {
-  rect(ctx, r, -1, 0.0, 1, 0.9, S.base)
+  rect(ctx, r, -1, 0.0, 1, 1.25, S.base)
   poly(ctx, r, [[-1, 0.0], [1, 0.0], [1, 0.12], [-1, 0.24]], S.primary)
   for (const target of [ctx, mask]) rect(target, r, -1, -0.6, 1, 0.0, target === mask ? '#00ff00' : '#141416')
   for (const target of [ctx, mask]) {
-    if (bodyStyle().kind === 'coupe') {
+    const lens = target === mask ? '#ff0000' : '#a0101a'
+    const { kind, rearGlass } = bodyStyle()
+    if (rearGlass) {
+      const [y0, y1] = rearGlass
+      const w = kind === 'suv' ? 0.7 : 0.56
+      poly(target, r, [[-w, y0], [w, y0], [w - 0.06, y1], [-(w - 0.06), y1]], target === mask ? '#ff0000' : GLASS)
+    }
+    if (kind === 'coupe') {
       // Full-width light bar across the tail.
-      rect(target, r, -0.84, 0.12, 0.84, 0.19, target === mask ? '#ff0000' : '#a0101a')
+      rect(target, r, -0.84, 0.12, 0.84, 0.19, lens)
       continue
     }
-    poly(target, r, [[-0.56, 0.44], [0.56, 0.44], [0.5, 0.74], [-0.5, 0.74]], target === mask ? '#ff0000' : GLASS)
+    if (kind === 'suv') {
+      for (const s of [-1, 1]) rect(target, r, s * 0.78, -0.05, s * 0.9, 0.3, lens)
+      continue
+    }
     for (const s of [-1, 1]) {
       poly(target, r, [[s * 0.62, 0.14], [s * 0.82, 0.16], [s * 0.8, 0.5], [s * 0.66, 0.48]], target === mask ? '#ff0000' : '#a0101a')
     }

@@ -3,6 +3,8 @@ import type { Surface } from '../track'
 export const CAR = {
   mass: 1250,
   halfExtents: { x: 0.85, y: 0.28, z: 2.0 },
+  /** Second collider for the glasshouse, so the roof touches the ground in a rollover. */
+  cabin: { halfExtents: { x: 0.68, y: 0.22, z: 0.85 }, center: { x: 0, y: 0.48, z: -0.2 } },
   centerOfMass: { x: 0, y: -0.14, z: 0.05 },
   inertia: { x: 1800, y: 2100, z: 520 },
 

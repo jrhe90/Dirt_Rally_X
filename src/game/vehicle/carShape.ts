@@ -15,17 +15,27 @@ export const BODY = {
 }
 
 export type BodyStyle = {
-  kind: 'hatch' | 'coupe'
+  kind: 'hatch' | 'coupe' | 'suv'
   /** Side silhouette (z, y) from the front bumper to the rear. */
   top: [number, number][]
-  /** Rearmost z of the side windows, and the B-pillar's z. */
+  /** Spline through `top` for curved bodies; straight segments keep a box body's edges crisp. */
+  smooth: boolean
+  /** Waistline: height at z = 0.8, rise per meter rearward, and clamp range. */
+  belt: [base: number, slope: number, min: number, max: number]
+  /** Roof half-width as a fraction of the body's, i.e. how much the glasshouse leans in. */
+  roofWidth: number
+  /** How much the plan view narrows toward the nose and the tail, in meters. */
+  taper: [front: number, rear: number]
+  /** Rearmost z of the side windows, and the z of each pillar splitting them (B, then C). */
   sideGlassRear: number
-  bPillar: number
+  pillars: number[]
   /** z ranges of the windscreen and rear screen as seen from above. */
   windscreen: [number, number]
-  rearScreen: [number, number]
-  /** Top of the windscreen as seen head-on. */
-  windscreenTop: number
+  rearScreen: [number, number] | null
+  /** Bottom and top of the windscreen as seen head-on. */
+  windscreenFront: [number, number]
+  /** Bottom and top of the rear window on an upright tailgate, if there is one. */
+  rearGlass: [number, number] | null
 }
 
 const HATCH_TOP: [number, number][] = [
@@ -70,32 +80,75 @@ const COUPE_TOP: [number, number][] = [
   [-2.0, 0.02],
 ]
 
+/** Upright off-roader: flat bonnet, near-vertical windscreen and tailgate, flat roof. */
+const SUV_TOP: [number, number][] = [
+  [2.03, 0.14],
+  [2.01, 0.3],
+  [1.94, 0.37],
+  [1.2, 0.4],
+  [0.66, 0.42],
+  [0.6, 0.6],
+  [0.5, 1.02],
+  [0.42, 1.09],
+  [0.3, 1.11],
+  [-1.7, 1.11],
+  [-1.86, 1.09],
+  [-1.94, 1.02],
+  [-1.98, 0.8],
+  [-2.0, 0.6],
+]
+
 export const BODY_STYLES: Record<BodyStyle['kind'], BodyStyle> = {
   hatch: {
     kind: 'hatch',
     top: HATCH_TOP,
     sideGlassRear: -1.6,
-    bPillar: -0.7,
+    pillars: [-0.7],
     windscreen: [0.04, 0.74],
     rearScreen: [-1.85, -1.56],
-    windscreenTop: 0.76,
+    windscreenFront: [0.34, 0.76],
+    rearGlass: [0.44, 0.74],
+    smooth: true,
+    belt: [0.315, 0.028, 0.3, 0.38],
+    roofWidth: 0.71,
+    taper: [0.17, 0.13],
   },
   coupe: {
     kind: 'coupe',
     top: COUPE_TOP,
     sideGlassRear: -1.0,
-    bPillar: -0.62,
+    pillars: [-0.62],
     windscreen: [0.12, 0.6],
     rearScreen: [-1.15, -0.62],
-    windscreenTop: 0.64,
+    windscreenFront: [0.34, 0.64],
+    rearGlass: null,
+    smooth: true,
+    belt: [0.315, 0.028, 0.3, 0.38],
+    roofWidth: 0.71,
+    taper: [0.17, 0.13],
+  },
+  suv: {
+    kind: 'suv',
+    top: SUV_TOP,
+    sideGlassRear: -1.86,
+    pillars: [-0.3, -1.3],
+    windscreen: [0.48, 0.6],
+    rearScreen: null,
+    windscreenFront: [0.6, 1.04],
+    rearGlass: [0.58, 0.98],
+    smooth: false,
+    belt: [0.5, 0, 0.5, 0.5],
+    roofWidth: 0.93,
+    taper: [0.05, 0.03],
   },
 }
 
 let style = BODY_STYLES.hatch
-let topTable = buildTopTable(style.top)
+let topTable = buildTopTable(style.top, style.smooth)
 
-function buildTopTable(points: [number, number][]): { z: number; y: number }[] {
-  const curve = new THREE.SplineCurve(points.map(([z, y]) => new THREE.Vector2(z, y)))
+function buildTopTable(points: [number, number][], smooth: boolean): { z: number; y: number }[] {
+  const pts = points.map(([z, y]) => new THREE.Vector2(z, y))
+  const curve = smooth ? new THREE.SplineCurve(pts) : new THREE.Path(pts)
   return curve
     .getPoints(600)
     .map((p) => ({ z: p.x, y: p.y }))
@@ -110,7 +163,7 @@ export function bodyStyle(): BodyStyle {
 export function setBodyStyle(next: BodyStyle): void {
   if (next === style) return
   style = next
-  topTable = buildTopTable(next.top)
+  topTable = buildTopTable(next.top, next.smooth)
 }
 
 /** Upper silhouette (bonnet, windscreen, roof, hatch) seen from the side. */
@@ -136,7 +189,8 @@ export function bottomY(z: number): number {
 }
 
 export function beltY(z: number): number {
-  return THREE.MathUtils.clamp(0.315 + (0.8 - z) * 0.028, 0.3, 0.38)
+  const [base, slope, min, max] = style.belt
+  return THREE.MathUtils.clamp(base + (0.8 - z) * slope, min, max)
 }
 
 function bell(z: number, center: number, width: number): number {
@@ -147,8 +201,9 @@ function bell(z: number, center: number, width: number): number {
 export function halfWidthAt(z: number): number {
   let hw = 0.86
   hw += 0.075 * bell(z, CAR.frontAxle, 0.62) + 0.075 * bell(z, CAR.rearAxle, 0.62)
-  if (z > 1.45) hw -= 0.17 * ((z - 1.45) / 0.58) ** 2
-  if (z < -1.55) hw -= 0.13 * ((-1.55 - z) / 0.45) ** 2
+  const [front, rear] = style.taper
+  if (z > 1.45) hw -= front * ((z - 1.45) / 0.58) ** 2
+  if (z < -1.55) hw -= rear * ((-1.55 - z) / 0.45) ** 2
   return hw
 }
 
@@ -176,7 +231,7 @@ export function halfSection(z: number): [number, number][] {
   const yF1 = Math.min(beltY(z), yTop - 0.04)
   const g = Math.max(0, yTop - yF1)
   const c = cabinFactor(z)
-  const roofHw = THREE.MathUtils.lerp(hw - 0.12, hw * 0.71, c)
+  const roofHw = THREE.MathUtils.lerp(hw - 0.12, hw * style.roofWidth, c)
   const xIn = Math.min(BODY.wheelWell, hw - 0.12)
   const flank0 = Math.min(yA + 0.05, yF1 - 0.06)
 

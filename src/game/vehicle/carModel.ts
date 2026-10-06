@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { CAR } from './config'
 import { createLivery, type Livery } from './carLivery'
 import type { LiveryScheme } from './cars'
-import { BODY, bodyStyle, halfSection, stations, topY } from './carShape'
+import { BODY, beltY, bodyStyle, halfSection, stations, topY } from './carShape'
 import type { Vehicle } from './vehicle'
 
 /** Must match the atlas layout documented in carLivery.ts. */
@@ -13,12 +13,12 @@ const LIVERY_GLSL = /* glsl */ `
   tw /= max(1e-4, tw.x + tw.y + tw.z);
   vec3 p = vObjPos;
   vec2 sideUv = on.x < 0.0
-    ? vec2((p.z + 2.1) / 4.2, (0.9 - p.y) / 1.4 * 0.25)
-    : vec2((2.1 - p.z) / 4.2, 0.25 + (0.9 - p.y) / 1.4 * 0.25);
+    ? vec2((p.z + 2.1) / 4.2, (1.25 - p.y) / 1.85 * 0.25)
+    : vec2((2.1 - p.z) / 4.2, 0.25 + (1.25 - p.y) / 1.85 * 0.25);
   vec2 topUv = vec2((p.z + 2.1) / 4.2, 0.5 + (1.0 - p.x) * 0.125);
   vec2 endUv = on.z > 0.0
-    ? vec2((p.x + 1.0) * 0.25, 0.75 + (0.9 - p.y) / 1.4 * 0.25)
-    : vec2(0.5 + (1.0 - p.x) * 0.25, 0.75 + (0.9 - p.y) / 1.4 * 0.25);
+    ? vec2((p.x + 1.0) * 0.25, 0.75 + (1.25 - p.y) / 1.85 * 0.25)
+    : vec2(0.5 + (1.0 - p.x) * 0.25, 0.75 + (1.25 - p.y) / 1.85 * 0.25);
   sideUv.y = 1.0 - sideUv.y;
   topUv.y = 1.0 - topUv.y;
   endUv.y = 1.0 - endUv.y;
@@ -187,6 +187,7 @@ export class CarModel {
     const mirrorGlass = new THREE.MeshStandardMaterial({ color: 0x8a96a0, roughness: 0.02, metalness: 1 })
     const lamp = new THREE.MeshStandardMaterial({ color: 0xf4f2ea, emissive: 0xfff2d0, emissiveIntensity: 1.6, roughness: 0.1 })
     const hook = new THREE.MeshStandardMaterial({ color: 0xff5a10, roughness: 0.4 })
+    const indicator = new THREE.MeshStandardMaterial({ color: 0xffa040, emissive: 0xff7a10, emissiveIntensity: 0.3, roughness: 0.2 })
 
     const chrome = new THREE.MeshStandardMaterial({ color: 0xd0d2d6, roughness: 0.15, metalness: 1 })
 
@@ -198,28 +199,37 @@ export class CarModel {
       return mesh
     }
 
-    const coupe = bodyStyle().kind === 'coupe'
-    if (coupe) {
+    const kind = bodyStyle().kind
+    const coupe = kind === 'coupe'
+    const suv = kind === 'suv'
+    if (suv) this.buildOffroadKit(add, matte, accent, chrome)
+    else if (coupe) {
       // Ducktail lip on the engine lid.
       add(new THREE.BoxGeometry(1.3, 0.03, 0.3), bodyColor, 0, topY(-1.78) + 0.04, -1.78, 0.28)
       add(new THREE.BoxGeometry(1.3, 0.05, 0.02), bodyColor, 0, topY(-1.78) + 0.065, -1.92)
     } else this.buildWing(add, carbon, accent)
 
-    // Mirrors.
+    // Mirrors, just above the waistline.
+    const my = beltY(0.56) + 0.085
     for (const s of [-1, 1]) {
-      add(new THREE.SphereGeometry(1, 16, 10).scale(0.1, 0.06, 0.075), bodyColor, s * 0.96, 0.4, 0.56)
-      add(new THREE.BoxGeometry(0.12, 0.025, 0.05), matte, s * 0.87, 0.37, 0.58)
-      add(new THREE.CircleGeometry(1, 16).scale(0.085, 0.048, 1), mirrorGlass, s * 0.96, 0.4, 0.484, 0, Math.PI)
+      add(new THREE.SphereGeometry(1, 16, 10).scale(0.1, 0.06, 0.075), bodyColor, s * 0.96, my, 0.56)
+      add(new THREE.BoxGeometry(0.12, 0.025, 0.05), matte, s * 0.87, my - 0.03, 0.58)
+      add(new THREE.CircleGeometry(1, 16).scale(0.085, 0.048, 1), mirrorGlass, s * 0.96, my, 0.484, 0, Math.PI)
     }
 
     // Roof scoop and antenna.
-    if (!coupe) add(new THREE.BoxGeometry(0.34, 0.05, 0.3), matte, 0, topY(-0.25) + 0.03, -0.25)
+    if (kind === 'hatch') add(new THREE.BoxGeometry(0.34, 0.05, 0.3), matte, 0, topY(-0.25) + 0.03, -0.25)
     const antennaZ = coupe ? -0.6 : -1.2
     add(new THREE.CylinderGeometry(0.003, 0.006, 0.36, 6), matte, 0.22, topY(antennaZ) + 0.18, antennaZ)
 
     // Lamps.
     for (const s of [-1, 1]) {
-      if (coupe) {
+      if (suv) {
+        add(new THREE.SphereGeometry(1, 20, 12).scale(0.1, 0.1, 0.035), lamp, s * 0.64, 0.22, 2.035)
+        add(new THREE.TorusGeometry(0.1, 0.014, 8, 24), chrome, s * 0.64, 0.22, 2.035)
+        // Indicator pods on top of the wings.
+        add(new THREE.BoxGeometry(0.1, 0.05, 0.08), indicator, s * 0.76, topY(1.75) + 0.025, 1.75)
+      } else if (coupe) {
         // Round headlamps standing up out of the front wings.
         const y = topY(1.7) - 0.01
         add(new THREE.SphereGeometry(1, 20, 12).scale(0.095, 0.095, 0.05), lamp, s * 0.6, y, 1.74)
@@ -231,6 +241,7 @@ export class CarModel {
       add(new THREE.SphereGeometry(1, 12, 8).scale(0.055, 0.055, 0.02), lamp, s * 0.6, -0.2, 2.025)
     }
     if (coupe) add(new THREE.BoxGeometry(1.62, 0.06, 0.03), this.tailMat, 0, 0.155, -1.99)
+    if (suv) for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.11, 0.33, 0.03), this.tailMat, s * 0.84, 0.125, -2.0)
 
     // Splitter, sump guard, mud flaps, exhaust and tow hooks.
     add(new THREE.BoxGeometry(1.42, 0.025, 0.16), carbon, 0, -0.395, 1.95)
@@ -244,6 +255,21 @@ export class CarModel {
     add(new THREE.CircleGeometry(0.042, 14), matte, -0.5, -0.33, -1.93, 0, Math.PI)
     add(new THREE.TorusGeometry(0.035, 0.009, 6, 14), hook, 0.5, -0.29, 2.035, 0, Math.PI / 2)
     add(new THREE.TorusGeometry(0.035, 0.009, 6, 14), hook, -0.55, -0.27, -2.0, 0, Math.PI / 2)
+  }
+
+  /** Roof rack and tailgate-mounted spare wheel. */
+  private buildOffroadKit(add: AddMesh, matte: THREE.Material, accent: THREE.Material, chrome: THREE.Material): void {
+    const roof = topY(-0.7) + 0.02
+    for (const s of [-1, 1]) {
+      add(new THREE.BoxGeometry(0.04, 0.04, 2.0), matte, s * 0.7, roof + 0.08, -0.72)
+      for (const z of [0.15, -1.6]) add(new THREE.BoxGeometry(0.04, 0.09, 0.04), matte, s * 0.7, roof + 0.035, z)
+    }
+    for (const z of [0.1, -0.45, -1.0, -1.55]) add(new THREE.BoxGeometry(1.44, 0.03, 0.05), matte, 0, roof + 0.1, z)
+
+    const tyre = new THREE.CylinderGeometry(0.33, 0.33, 0.22, 28).rotateX(Math.PI / 2)
+    add(tyre, matte, 0.12, 0.4, -2.13)
+    add(new THREE.CylinderGeometry(0.25, 0.25, 0.04, 28).rotateX(Math.PI / 2), accent, 0.12, 0.4, -2.25)
+    add(new THREE.TorusGeometry(0.25, 0.012, 6, 28), chrome, 0.12, 0.4, -2.27)
   }
 
   /** Rear wing: airfoil main plane, endplates and pylons. */
