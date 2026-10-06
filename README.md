@@ -42,6 +42,7 @@ Pick a car on the start screen, or press `V` during a run to switch to the next 
 | Falco 131 | RWD | Classic rear-drive saloon. Slides on the throttle. |
 | Mistral Kit Car | FWD | Light, high-revving front-driver. Use the handbrake to turn in. |
 | Halden 9R Coupé | RWD, rear engine | Classic rear-engined sports coupé. Great traction on exit; lift mid-corner and the tail swings round. |
+| Terrax 4x4 | AWD, 50:50 | Boxy V8 off-roader. Heavy and tall: brake early, but it soaks up ruts and jumps. |
 
 There are three body styles. The Halden has a fastback coupé body with round headlamps, a ducktail and a full-width tail-light bar. The Terrax has an upright box body with round headlamps, a slatted grille, a roof rack and a spare wheel on the tailgate, plus a taller cabin collider. The rest share the hatchback body, and all six share the wheel layout. Each has its own mass, inertia, suspension, gearing, torque curve, torque split and brakes (`src/game/vehicle/cars.ts`), and its own livery. The car names and teams are fictional.
 
