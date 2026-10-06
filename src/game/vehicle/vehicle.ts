@@ -75,7 +75,7 @@ export class Vehicle {
   private readonly world: RAPIER.World
   private readonly surfaceAt: SurfaceResolver
   private readonly ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 })
-  private readonly cornerMass = CAR.mass / 4
+  private cornerMass = CAR.mass / 4
 
   constructor(world: RAPIER.World, surfaceAt: SurfaceResolver, position: THREE.Vector3, yaw: number) {
     this.world = world
@@ -125,6 +125,13 @@ export class Vehicle {
       angularVelocity: 0,
       steer: 0,
     }))
+  }
+
+  /** Picks up mass and inertia after `CAR` changes; the wheel layout is shared by every car. */
+  applyCar(): void {
+    this.cornerMass = CAR.mass / 4
+    this.body.setAdditionalMassProperties(CAR.mass, CAR.centerOfMass, CAR.inertia, { x: 0, y: 0, z: 0, w: 1 }, true)
+    for (const w of this.wheels) w.local.y = CAR.mountY
   }
 
   reset(position: THREE.Vector3, yaw: number): void {

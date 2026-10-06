@@ -66,8 +66,11 @@ export class Hud {
     this.buildBoard()
   }
 
-  private buildTacho(): void {
+  /** Redraws the tacho for the selected car's rev range. */
+  buildTacho(): void {
     const ticks = $<SVGGElement>('#tacho-ticks')
+    ticks.replaceChildren()
+    TACHO.maxRpm = Math.max(8000, Math.ceil(CAR.redline / 1000) * 1000)
     const redline = rpmAngle(CAR.redline)
     const red = document.createElementNS(SVG_NS, 'path')
     red.setAttribute('d', arcPath(redline, TACHO.start + TACHO.sweep, TACHO.r - 4))

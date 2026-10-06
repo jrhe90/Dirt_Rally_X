@@ -22,8 +22,13 @@ export function autopilot(track: Track, vehicle: Vehicle, hintIndex: number, lat
   }
   const vTarget = THREE.MathUtils.clamp(Math.sqrt((lateralG * 9.81) / Math.max(curvature, 1e-4)), 12, 40)
 
+  // Lift when the tail steps out, so powerful or rear-driven cars do not spin on corner exit.
+  const vel = vehicle.velocity.setY(0)
+  const bodySlip = vel.lengthSq() > 4 ? fwd.angleTo(vel.normalize()) : 0
+  const traction = THREE.MathUtils.clamp(1 - (bodySlip - 0.15) / 0.2, 0.2, 1)
+
   return {
-    throttle: speed < vTarget - 1 ? 1 : speed < vTarget ? 0.3 : 0,
+    throttle: (speed < vTarget - 1 ? 1 : speed < vTarget ? 0.3 : 0) * traction,
     brake: speed > vTarget + 3 ? 0.8 : 0,
     steer: THREE.MathUtils.clamp(angle * 2.2, -1, 1),
     handbrake: 0,

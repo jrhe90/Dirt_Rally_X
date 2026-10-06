@@ -18,6 +18,7 @@ import { PaceCard } from './game/paceCard'
 import { LAPS } from './game/race'
 import { createStage, PHYSICS_STEP, type Stage } from './game/stage'
 import { SURFACES } from './game/vehicle/config'
+import { CARS, currentCar, loadCarChoice, nextCar, saveCarChoice, selectCar, type CarSpec } from './game/vehicle/cars'
 import { CarModel } from './game/vehicle/carModel'
 import type { DriveControls } from './game/vehicle/vehicle'
 
@@ -65,7 +66,44 @@ function createRenderer(quality: Quality): THREE.WebGLRenderer {
   }
 }
 
-/** Start screen with co-driver and music choices; resolves on Start (a user gesture, so audio can unlock). */
+/** Car cards on the start screen; `onPick` swaps the car behind the overlay. */
+function buildCarPicker(onPick: (car: CarSpec) => void): void {
+  const picker = overlay.querySelector<HTMLDivElement>('.car-picker')!
+  const cards = CARS.map((car) => {
+    const card = document.createElement('button')
+    card.type = 'button'
+    card.className = 'car-card'
+    card.setAttribute('role', 'radio')
+    card.dataset.car = car.id
+    card.style.setProperty('--car-base', car.livery.base)
+    card.style.setProperty('--car-primary', car.livery.primary)
+    const swatch = document.createElement('span')
+    swatch.className = 'car-swatch'
+    swatch.setAttribute('aria-hidden', 'true')
+    const name = document.createElement('span')
+    name.className = 'car-name'
+    name.textContent = car.name
+    const tag = document.createElement('span')
+    tag.className = 'car-tag'
+    tag.textContent = car.tagline
+    const desc = document.createElement('span')
+    desc.className = 'car-desc'
+    desc.textContent = car.description
+    card.append(swatch, name, tag, desc)
+    card.addEventListener('click', () => {
+      onPick(car)
+      sync()
+    })
+    picker.appendChild(card)
+    return card
+  })
+  const sync = () => {
+    for (const card of cards) card.setAttribute('aria-checked', String(card.dataset.car === currentCar().id))
+  }
+  sync()
+}
+
+/** Start screen with car, co-driver and music choices; resolves on Start (a user gesture, so audio can unlock). */
 function waitForStart(audio: GameAudio): Promise<void> {
   const form = overlay.querySelector<HTMLFormElement>('.overlay-start')!
   const groups = form.querySelectorAll<HTMLElement>('[data-setting]')
@@ -118,6 +156,7 @@ function buildScene(renderer: THREE.WebGLRenderer, stage: Stage, assets: GameAss
 }
 
 async function main() {
+  selectCar(loadCarChoice(params))
   const quality = detectQuality()
   const renderer = createRenderer(quality)
 
@@ -142,7 +181,7 @@ async function main() {
 
   const { world, vehicle, race, terrain } = stage
   const { scene, env, scenery } = buildScene(renderer, stage, assets, quality)
-  const car = new CarModel()
+  const car = new CarModel(currentCar().livery)
   scene.add(car.group)
   const dust = new DustSystem(quality.dustParticles)
   scene.add(dust.points)
@@ -182,15 +221,26 @@ async function main() {
   let lastCount = -1
   let dirt = 0.3
 
+  const startPose = () =>
+    Number.isFinite(startAt) ? race.recoveryPose(stage.track.pointAt(startAt).position) : race.startPose()
+
   const placeCar = (pose: { position: THREE.Vector3; yaw: number }) => {
     vehicle.reset(pose.position, pose.yaw)
     car.sync(vehicle)
     rig.snap(vehicle)
   }
 
+  const changeCar = (spec: CarSpec) => {
+    selectCar(spec)
+    saveCarChoice(spec)
+    vehicle.applyCar()
+    car.setLivery(spec.livery)
+    hud.buildTacho()
+  }
+
   const restart = () => {
     race.reset()
-    placeCar(Number.isFinite(startAt) ? race.recoveryPose(stage.track.pointAt(startAt).position) : race.startPose())
+    placeCar(startPose())
     phase = 'countdown'
     countdown = COUNTDOWN
     lastCount = -1
@@ -206,7 +256,7 @@ async function main() {
     audio.recovered(race.progress)
   }
 
-  placeCar(Number.isFinite(startAt) ? race.recoveryPose(stage.track.pointAt(startAt).position) : race.startPose())
+  placeCar(startPose())
   // Compile every shader before the overlay fades so the first frames do not hitch.
   await renderer.compileAsync(scene, rig.camera)
 
@@ -227,6 +277,11 @@ async function main() {
     if (input.cycleCamera) rig.cycle()
     if (input.toggleMusic) hud.toast(audio.toggleMusic())
     if (input.cycleCodriver) hud.toast(audio.cycleCodriver())
+    if (input.cycleCar && phase !== 'waiting') {
+      changeCar(nextCar(currentCar()))
+      restart()
+      hud.toast(currentCar().name.toUpperCase())
+    }
 
     if (phase === 'countdown') {
       countdown -= dt
@@ -310,6 +365,10 @@ async function main() {
     audio.engine.unlockOnFirstGesture()
     audio.start()
   } else {
+    buildCarPicker((spec) => {
+      changeCar(spec)
+      placeCar(startPose())
+    })
     await waitForStart(audio)
     overlay.classList.add('done')
   }

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { CAR } from './config'
+import type { LiveryScheme } from './cars'
 import { BODY, beltY, halfWidthAt, topY } from './carShape'
 
 /**
@@ -17,13 +18,12 @@ const SIZE = 2048
 const SIDE_SX = SIZE / 4.2
 const SIDE_SY = 512 / 1.4
 
+/** Number plates and crew names stay white with black print whatever the paint. */
 const WHITE = '#f2f2ef'
 const BLACK = '#121315'
-const BLUE = '#1b56f0'
-const DEEP = '#0b2a8a'
-const YELLOW = '#e4ff1c'
-const CYAN = '#14d8c4'
 const GLASS = '#0a0e12'
+
+let S: LiveryScheme
 
 type Region = {
   /** Car meters to canvas pixels. */
@@ -54,11 +54,12 @@ type Painter = {
 
 export type Livery = { color: THREE.CanvasTexture; mask: THREE.CanvasTexture; dirt: THREE.CanvasTexture }
 
-export function createLivery(): Livery {
+export function createLivery(scheme: LiveryScheme): Livery {
+  S = scheme
   const color = makeCanvas(SIZE)
   const mask = makeCanvas(SIZE)
   const p: Painter = { ctx: color.getContext('2d')!, mask: mask.getContext('2d')! }
-  p.ctx.fillStyle = WHITE
+  p.ctx.fillStyle = S.base
   p.ctx.fillRect(0, 0, SIZE, SIZE)
   p.mask.fillStyle = '#000'
   p.mask.fillRect(0, 0, SIZE, SIZE)
@@ -136,13 +137,17 @@ function sampled(from: number, to: number, steps: number, f: (z: number) => [num
   return out
 }
 
+function plate(): string {
+  return `${S.brand.slice(0, 2)} ${S.number}`
+}
+
 function paintSide({ ctx, mask }: Painter, r: Region) {
   // Lower body in black with an electric-blue wedge sweeping up to the rear.
-  poly(ctx, r, [[2.2, -0.6], [2.2, -0.06], [0.7, -0.13], [-0.6, -0.06], [-2.2, 0.2], [-2.2, -0.6]], BLACK)
-  poly(ctx, r, [[2.2, -0.06], [0.7, -0.13], [-0.6, -0.06], [-2.2, 0.2], [-2.2, 0.44], [-0.4, 0.07], [0.9, -0.03], [2.2, 0.02]], BLUE)
-  poly(ctx, r, [[-0.2, 0.0], [-2.2, 0.33], [-2.2, 0.44], [-0.4, 0.07]], DEEP)
+  poly(ctx, r, [[2.2, -0.6], [2.2, -0.06], [0.7, -0.13], [-0.6, -0.06], [-2.2, 0.2], [-2.2, -0.6]], S.lower)
+  poly(ctx, r, [[2.2, -0.06], [0.7, -0.13], [-0.6, -0.06], [-2.2, 0.2], [-2.2, 0.44], [-0.4, 0.07], [0.9, -0.03], [2.2, 0.02]], S.primary)
+  poly(ctx, r, [[-0.2, 0.0], [-2.2, 0.33], [-2.2, 0.44], [-0.4, 0.07]], S.deep)
   inMeters(ctx, r, () => {
-    ctx.strokeStyle = YELLOW
+    ctx.strokeStyle = S.stripe
     ctx.lineWidth = 0.035
     ctx.beginPath()
     ctx.moveTo(2.2, 0.035)
@@ -152,9 +157,9 @@ function paintSide({ ctx, mask }: Painter, r: Region) {
     ctx.stroke()
   })
   // Shards on the rear quarter.
-  poly(ctx, r, [[-1.05, 0.13], [-1.55, 0.3], [-1.3, 0.12]], CYAN)
-  poly(ctx, r, [[-1.4, 0.06], [-1.95, 0.2], [-1.7, 0.03]], YELLOW)
-  poly(ctx, r, [[-0.75, 0.1], [-1.1, 0.24], [-0.95, 0.09]], WHITE)
+  poly(ctx, r, [[-1.05, 0.13], [-1.55, 0.3], [-1.3, 0.12]], S.shard)
+  poly(ctx, r, [[-1.4, 0.06], [-1.95, 0.2], [-1.7, 0.03]], S.stripe)
+  poly(ctx, r, [[-0.75, 0.1], [-1.1, 0.24], [-0.95, 0.09]], S.base)
 
   // Black arch trims and sills (matte plastic).
   for (const target of [ctx, mask]) {
@@ -196,11 +201,11 @@ function paintSide({ ctx, mask }: Painter, r: Region) {
     ctx.fill()
     ctx.stroke()
   })
-  text(ctx, r, '27', 0.1, 0.11, 0.24, BLACK, '"Bebas Neue", Impact, sans-serif', 'bold', false)
-  text(ctx, r, 'KESTREL', 0.0, -0.22, 0.17, WHITE)
-  text(ctx, r, 'VOLTA ENERGY', -1.45, 0.06, 0.07, WHITE)
-  text(ctx, r, 'RIDGELINE', 1.3, 0.2, 0.055, BLACK)
-  text(ctx, r, 'RIDGELINE', -1.2, -0.34 + 0.1, 0.05, YELLOW)
+  text(ctx, r, S.number, 0.1, 0.11, 0.24, BLACK, '"Bebas Neue", Impact, sans-serif', 'bold', false)
+  text(ctx, r, S.brand, 0.0, -0.22, 0.17, S.base)
+  text(ctx, r, S.sponsor, -1.45, 0.06, 0.07, S.base)
+  text(ctx, r, 'RIDGELINE', 1.3, 0.2, 0.055, S.ink)
+  text(ctx, r, 'RIDGELINE', -1.2, -0.34 + 0.1, 0.05, S.stripe)
 
   // Glasshouse: side glass with black seals, B-pillar and crew names.
   const windowTop = (z: number) => topY(z) - 0.065
@@ -224,7 +229,7 @@ function paintSide({ ctx, mask }: Painter, r: Region) {
     })
     rect(target, r, -0.66, windowBottom(-0.66) - 0.01, -0.75, windowTop(-0.7) + 0.01, target === mask ? '#00ff00' : '#111214')
   }
-  text(ctx, r, 'J. ROSS  ·  M. HALE', -1.1, windowBottom(-1.1) + 0.06, 0.045, WHITE, 'Arial, sans-serif', 'bold', false)
+  text(ctx, r, S.crew, -1.1, windowBottom(-1.1) + 0.06, 0.045, WHITE, 'Arial, sans-serif', 'bold', false)
 
   // Lamp corners seen from the side.
   for (const target of [ctx, mask]) {
@@ -235,9 +240,9 @@ function paintSide({ ctx, mask }: Painter, r: Region) {
 
 function paintTop({ ctx, mask }: Painter, r: Region) {
   // Bonnet: blue chevron with a yellow pinstripe.
-  poly(ctx, r, [[0.8, -0.6], [2.2, -0.3], [2.2, 0.3], [0.8, 0.6], [0.8, 0.42], [1.9, 0.16], [1.9, -0.16], [0.8, -0.42]], BLUE)
+  poly(ctx, r, [[0.8, -0.6], [2.2, -0.3], [2.2, 0.3], [0.8, 0.6], [0.8, 0.42], [1.9, 0.16], [1.9, -0.16], [0.8, -0.42]], S.primary)
   inMeters(ctx, r, () => {
-    ctx.strokeStyle = YELLOW
+    ctx.strokeStyle = S.stripe
     ctx.lineWidth = 0.03
     ctx.beginPath()
     ctx.moveTo(0.8, 0.44)
@@ -246,24 +251,24 @@ function paintTop({ ctx, mask }: Painter, r: Region) {
     ctx.lineTo(0.8, -0.44)
     ctx.stroke()
   })
-  text(ctx, r, 'KESTREL', 1.32, 0, 0.16, BLACK)
+  text(ctx, r, S.brand, 1.32, 0, 0.16, S.ink)
   for (const target of [ctx, mask]) {
     for (const x of [-0.3, 0.3]) rect(target, r, 1.05, x - 0.1, 1.3, x + 0.1, target === mask ? '#00ff00' : '#151517')
   }
 
   // Roof: deep blue with the competition number for the helicopter camera.
-  rect(ctx, r, -1.5, -1, -0.05, 1, DEEP)
+  rect(ctx, r, -1.5, -1, -0.05, 1, S.deep)
   inMeters(ctx, r, () => {
     ctx.fillStyle = WHITE
     ctx.beginPath()
     ctx.roundRect(-1.12, -0.28, 0.6, 0.56, 0.06)
     ctx.fill()
   })
-  text(ctx, r, '27', -0.82, 0, 0.5, BLACK, '"Bebas Neue", Impact, sans-serif', 'bold', false)
+  text(ctx, r, S.number, -0.82, 0, 0.5, BLACK, '"Bebas Neue", Impact, sans-serif', 'bold', false)
 
   // Lower body below the sills and the sides of the bumpers stay black.
-  rect(ctx, r, -2.2, -1, 2.2, -0.86, BLACK)
-  rect(ctx, r, -2.2, 0.86, 2.2, 1, BLACK)
+  rect(ctx, r, -2.2, -1, 2.2, -0.86, S.lower)
+  rect(ctx, r, -2.2, 0.86, 2.2, 1, S.lower)
 
   // Windscreen and rear screen.
   const screen = (z0: number, z1: number) => {
@@ -275,12 +280,12 @@ function paintTop({ ctx, mask }: Painter, r: Region) {
   }
   screen(0.04, 0.74)
   screen(-1.85, -1.56)
-  rect(ctx, r, 0.04, -0.62, 0.15, 0.62, BLUE)
+  rect(ctx, r, 0.04, -0.62, 0.15, 0.62, S.primary)
 }
 
 function paintFront({ ctx, mask }: Painter, r: Region) {
-  rect(ctx, r, -1, 0.0, 1, 0.3, WHITE)
-  poly(ctx, r, [[-1, 0.02], [1, 0.02], [1, 0.12], [0.4, 0.18], [-0.4, 0.18], [-1, 0.12]], BLUE)
+  rect(ctx, r, -1, 0.0, 1, 0.3, S.base)
+  poly(ctx, r, [[-1, 0.02], [1, 0.02], [1, 0.12], [0.4, 0.18], [-0.4, 0.18], [-1, 0.12]], S.primary)
   for (const target of [ctx, mask]) {
     const matte = target === mask ? '#00ff00' : '#141416'
     rect(target, r, -1, -0.6, 1, 0.0, matte)
@@ -317,7 +322,7 @@ function paintFront({ ctx, mask }: Painter, r: Region) {
     }
   }
   rect(ctx, r, -0.22, -0.2, 0.22, -0.1, WHITE)
-  text(ctx, r, 'KR 27', 0, -0.15, 0.075, BLACK, 'Arial, sans-serif', 'bold', false)
+  text(ctx, r, plate(), 0, -0.15, 0.075, BLACK, 'Arial, sans-serif', 'bold', false)
   // Headlamps.
   for (const target of [ctx, mask]) {
     for (const s of [-1, 1]) {
@@ -328,13 +333,13 @@ function paintFront({ ctx, mask }: Painter, r: Region) {
   for (const target of [ctx, mask]) {
     poly(target, r, [[-0.66, 0.34], [0.66, 0.34], [0.58, 0.76], [-0.58, 0.76]], target === mask ? '#ff0000' : GLASS)
   }
-  rect(ctx, r, -0.6, 0.68, 0.6, 0.76, BLUE)
-  text(ctx, r, 'KALTENBACH RALLY', 0, 0.72, 0.055, WHITE, '"Bebas Neue", Impact, sans-serif', 'bold', false)
+  rect(ctx, r, -0.6, 0.68, 0.6, 0.76, S.primary)
+  text(ctx, r, 'KALTENBACH RALLY', 0, 0.72, 0.055, S.base, '"Bebas Neue", Impact, sans-serif', 'bold', false)
 }
 
 function paintRear({ ctx, mask }: Painter, r: Region) {
-  rect(ctx, r, -1, 0.0, 1, 0.9, WHITE)
-  poly(ctx, r, [[-1, 0.0], [1, 0.0], [1, 0.12], [-1, 0.24]], BLUE)
+  rect(ctx, r, -1, 0.0, 1, 0.9, S.base)
+  poly(ctx, r, [[-1, 0.0], [1, 0.0], [1, 0.12], [-1, 0.24]], S.primary)
   for (const target of [ctx, mask]) rect(target, r, -1, -0.6, 1, 0.0, target === mask ? '#00ff00' : '#141416')
   for (const target of [ctx, mask]) {
     poly(target, r, [[-0.56, 0.44], [0.56, 0.44], [0.5, 0.74], [-0.5, 0.74]], target === mask ? '#ff0000' : GLASS)
@@ -342,9 +347,9 @@ function paintRear({ ctx, mask }: Painter, r: Region) {
       poly(target, r, [[s * 0.62, 0.14], [s * 0.82, 0.16], [s * 0.8, 0.5], [s * 0.66, 0.48]], target === mask ? '#ff0000' : '#a0101a')
     }
   }
-  text(ctx, r, 'KESTREL RALLY TEAM', 0, 0.3, 0.07, BLACK)
+  text(ctx, r, `${S.brand} RALLY TEAM`, 0, 0.3, 0.07, S.ink)
   rect(ctx, r, -0.22, -0.02, 0.22, 0.09, WHITE)
-  text(ctx, r, 'KR 27', 0, 0.035, 0.07, BLACK, 'Arial, sans-serif', 'bold', false)
+  text(ctx, r, plate(), 0, 0.035, 0.07, BLACK, 'Arial, sans-serif', 'bold', false)
 }
 
 function createDirtTexture(): THREE.CanvasTexture {

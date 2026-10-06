@@ -65,7 +65,7 @@
 
       <div class="controls">
         <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive · <kbd>Space</kbd> handbrake · <kbd>C</kbd> camera ·
-        <kbd>R</kbd> recover · <kbd>T</kbd> restart · <kbd>M</kbd> music · <kbd>N</kbd> co-driver · gamepad supported
+        <kbd>R</kbd> recover · <kbd>T</kbd> restart · <kbd>V</kbd> change car · <kbd>M</kbd> music · <kbd>N</kbd> co-driver · gamepad supported
       </div>
     </div>
 
@@ -91,6 +91,10 @@
       <div class="overlay-status">Building the stage…</div>
       <div class="spinner" aria-hidden="true"></div>
       <form class="overlay-start" hidden>
+        <fieldset class="setting">
+          <legend>Car <span lang="zh">赛车</span></legend>
+          <div class="car-picker" role="radiogroup" aria-label="Car"></div>
+        </fieldset>
         <fieldset class="setting">
           <legend>Co-driver <span lang="zh">领航员</span></legend>
           <div class="segmented" data-setting="codriver">

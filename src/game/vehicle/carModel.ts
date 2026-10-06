@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { CAR } from './config'
-import { createLivery } from './carLivery'
+import { createLivery, type Livery } from './carLivery'
+import type { LiveryScheme } from './cars'
 import { BODY, halfSection, stations, topY } from './carShape'
 import type { Vehicle } from './vehicle'
 
@@ -42,6 +43,11 @@ export class CarModel {
   readonly group = new THREE.Group()
   private readonly wheels: { steer: THREE.Group; spin: THREE.Group }[] = []
   private readonly dirt = { value: 0.35 }
+  private livery: Livery
+  private readonly uniforms: { tLivery: { value: THREE.Texture }; tMask: { value: THREE.Texture }; tDirt: { value: THREE.Texture }; uDirt: { value: number } }
+  /** Trim pieces painted in the livery's accent and base colors. */
+  private readonly accentMat = new THREE.MeshPhysicalMaterial({ roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.08 })
+  private readonly baseMat = new THREE.MeshPhysicalMaterial({ roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.06 })
   private readonly tailMat = new THREE.MeshStandardMaterial({
     color: 0x5a0608,
     emissive: 0xff1a10,
@@ -49,7 +55,15 @@ export class CarModel {
     roughness: 0.2,
   })
 
-  constructor() {
+  constructor(scheme: LiveryScheme) {
+    this.livery = createLivery(scheme)
+    this.uniforms = {
+      tLivery: { value: this.livery.color },
+      tMask: { value: this.livery.mask },
+      tDirt: { value: this.livery.dirt },
+      uDirt: this.dirt,
+    }
+    this.setTrimColors(scheme)
     this.buildBody()
     this.buildDetails()
     this.buildWheels()
@@ -76,13 +90,30 @@ export class CarModel {
     this.tailMat.emissiveIntensity = braking ? 4 : 0.4
   }
 
+  /** Repaints the body for another car; the shape is shared by every car. */
+  setLivery(scheme: LiveryScheme): void {
+    const old = this.livery
+    this.livery = createLivery(scheme)
+    this.uniforms.tLivery.value = this.livery.color
+    this.uniforms.tMask.value = this.livery.mask
+    this.uniforms.tDirt.value = this.livery.dirt
+    old.color.dispose()
+    old.mask.dispose()
+    old.dirt.dispose()
+    this.setTrimColors(scheme)
+  }
+
+  private setTrimColors(scheme: LiveryScheme): void {
+    this.accentMat.color.set(scheme.primary)
+    this.baseMat.color.set(scheme.base)
+  }
+
   /** 0 = freshly washed, 1 = caked in stage dirt. */
   setDirt(amount: number): void {
     this.dirt.value = THREE.MathUtils.clamp(amount, 0, 1)
   }
 
   private buildBody(): void {
-    const livery = createLivery()
     const paint = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
       roughness: 0.32,
@@ -90,14 +121,8 @@ export class CarModel {
       clearcoat: 1,
       clearcoatRoughness: 0.05,
     })
-    const uniforms = {
-      tLivery: { value: livery.color },
-      tMask: { value: livery.mask },
-      tDirt: { value: livery.dirt },
-      uDirt: this.dirt,
-    }
     paint.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, uniforms)
+      Object.assign(shader.uniforms, this.uniforms)
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\nvarying vec3 vObjPos;\nvarying vec3 vObjNormal;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\nvObjPos = position;\nvObjNormal = normal;')
@@ -152,8 +177,8 @@ export class CarModel {
   private buildDetails(): void {
     const matte = new THREE.MeshStandardMaterial({ color: 0x141416, roughness: 0.6 })
     const carbon = new THREE.MeshPhysicalMaterial({ color: 0x0c0c0e, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.1 })
-    const blue = new THREE.MeshPhysicalMaterial({ color: 0x1b56f0, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.08 })
-    const white = new THREE.MeshPhysicalMaterial({ color: 0xf2f2ef, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.06 })
+    const accent = this.accentMat
+    const bodyColor = this.baseMat
     const alloy = new THREE.MeshStandardMaterial({ color: 0x8a8c90, roughness: 0.45, metalness: 0.9 })
     const pipeMat = new THREE.MeshStandardMaterial({ color: 0xb0b0b0, roughness: 0.25, metalness: 1, side: THREE.DoubleSide })
     const mirrorGlass = new THREE.MeshStandardMaterial({ color: 0x8a96a0, roughness: 0.02, metalness: 1 })
@@ -180,14 +205,14 @@ export class CarModel {
     add(wingGeo, carbon, 0, 0.9, -1.46, 0.06)
     for (const s of [-1, 1]) {
       add(new THREE.BoxGeometry(0.014, 0.17, 0.42), carbon, s * 0.755, 0.89, -1.66)
-      add(new THREE.BoxGeometry(0.016, 0.03, 0.42), blue, s * 0.755, 0.985, -1.66)
+      add(new THREE.BoxGeometry(0.016, 0.03, 0.42), accent, s * 0.755, 0.985, -1.66)
       add(new THREE.BoxGeometry(0.022, 0.18, 0.16), carbon, s * 0.34, 0.8, -1.6)
     }
     add(new THREE.BoxGeometry(1.22, 0.025, 0.26), carbon, 0, topY(-1.45) + 0.005, -1.52, -0.32)
 
     // Mirrors.
     for (const s of [-1, 1]) {
-      add(new THREE.SphereGeometry(1, 16, 10).scale(0.1, 0.06, 0.075), white, s * 0.96, 0.4, 0.56)
+      add(new THREE.SphereGeometry(1, 16, 10).scale(0.1, 0.06, 0.075), bodyColor, s * 0.96, 0.4, 0.56)
       add(new THREE.BoxGeometry(0.12, 0.025, 0.05), matte, s * 0.87, 0.37, 0.58)
       add(new THREE.CircleGeometry(1, 16).scale(0.085, 0.048, 1), mirrorGlass, s * 0.96, 0.4, 0.484, 0, Math.PI)
     }

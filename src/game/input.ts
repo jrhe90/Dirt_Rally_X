@@ -8,6 +8,7 @@ export type FrameInput = DriveControls & {
   cycleCamera: boolean
   toggleMusic: boolean
   cycleCodriver: boolean
+  cycleCar: boolean
 }
 
 type TouchControl = 'left' | 'right' | 'gas' | 'brake' | 'handbrake' | 'recover' | 'camera'
@@ -119,6 +120,7 @@ export function readInput(dt: number): FrameInput {
     cycleCamera: keyEdges.has('KeyC') || touchEdges.has('camera') || !!pad?.cycleCamera,
     toggleMusic: keyEdges.has('KeyM'),
     cycleCodriver: keyEdges.has('KeyN'),
+    cycleCar: keyEdges.has('KeyV'),
   }
 
   keyEdges.clear()

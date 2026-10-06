@@ -672,6 +672,77 @@ kbd {
   color: var(--ink);
 }
 
+.car-picker {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 11rem));
+  gap: 0.5rem;
+  max-width: calc(100vw - 2rem);
+}
+
+.car-card {
+  display: grid;
+  align-content: start;
+  gap: 0.2rem;
+  padding: 0.55rem 0.7rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(22, 15, 10, 0.6);
+  color: var(--sand);
+  font: 400 0.78rem/1.3 "IBM Plex Sans", sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.car-card:hover {
+  background: rgba(61, 42, 26, 0.85);
+}
+
+.car-card[aria-checked="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: rgba(61, 42, 26, 0.9);
+}
+
+.car-swatch {
+  height: 0.5rem;
+  margin-bottom: 0.25rem;
+  border-radius: 2px;
+  background: linear-gradient(100deg, var(--car-base) 0 55%, var(--car-primary) 55% 100%);
+}
+
+.car-name {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.3rem;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: #fff;
+}
+
+.car-tag {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.car-desc {
+  color: rgba(240, 230, 210, 0.75);
+}
+
+@media (max-width: 760px), (max-height: 520px) {
+  .car-picker {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .car-desc {
+    display: none;
+  }
+
+  .overlay {
+    overflow-y: auto;
+    place-content: safe center;
+    padding: 1rem 0;
+  }
+}
+
 .start-button {
   margin-top: 0.5rem;
   padding: 0.7rem 2.6rem;
