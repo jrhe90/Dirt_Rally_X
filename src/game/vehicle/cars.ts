@@ -1,6 +1,7 @@
+import { BODY_STYLES, setBodyStyle, type BodyStyle } from './carShape'
 import { CAR } from './config'
 
-/** Paint scheme and decals for the shared hatchback body. */
+/** Paint scheme and decals painted onto the body. */
 export type LiveryScheme = {
   /** Main body paint. */
   base: string
@@ -32,6 +33,7 @@ export type CarSpec = {
   /** Short class label shown on the picker, e.g. "AWD · 1250 kg". */
   tagline: string
   description: string
+  body: BodyStyle['kind']
   tuning: CarTuning
   livery: LiveryScheme
 }
@@ -44,6 +46,7 @@ export const CARS: CarSpec[] = [
     name: 'Kestrel R5',
     tagline: 'AWD · 1250 kg · 300 hp',
     description: 'Modern four-wheel-drive rally car. Planted, quick and forgiving.',
+    body: 'hatch',
     tuning: {},
     livery: {
       base: '#f2f2ef',
@@ -64,6 +67,7 @@ export const CARS: CarSpec[] = [
     name: 'Vortex S4',
     tagline: 'AWD · 1150 kg · 480 hp',
     description: 'Group B monster. Huge turbo power, rear-biased and twitchy over crests.',
+    body: 'hatch',
     tuning: {
       mass: 1150,
       inertia: { x: 1750, y: 2000, z: 500 },
@@ -106,6 +110,7 @@ export const CARS: CarSpec[] = [
     name: 'Falco 131',
     tagline: 'RWD · 1050 kg · 230 hp',
     description: 'Classic rear-drive saloon. Less grip, more sideways — steer with the throttle.',
+    body: 'hatch',
     tuning: {
       mass: 1050,
       // Rear-biased weight keeps the driven axle loaded so part throttle slides rather than spins.
@@ -155,6 +160,7 @@ export const CARS: CarSpec[] = [
     name: 'Mistral Kit Car',
     tagline: 'FWD · 1000 kg · 260 hp',
     description: 'Light front-drive screamer. Brakes late, pulls hard, needs the handbrake to turn in.',
+    body: 'hatch',
     tuning: {
       mass: 1000,
       inertia: { x: 1450, y: 1700, z: 420 },
@@ -196,6 +202,53 @@ export const CARS: CarSpec[] = [
       crew: 'A. VIDAL  ·  C. ROUX',
     },
   },
+  {
+    id: 'halden',
+    name: 'Halden 9R Coupé',
+    tagline: 'RWD · rear engine · 1100 kg · 300 hp',
+    description: 'Rear-engined sports coupé. Huge traction out of corners; the tail swings like a pendulum if you lift mid-turn.',
+    body: 'coupe',
+    tuning: {
+      mass: 1100,
+      // Flat-six hung behind the rear axle.
+      centerOfMass: { x: 0, y: -0.17, z: -0.3 },
+      inertia: { x: 1650, y: 2050, z: 470 },
+      springRate: 36000,
+      antiRollFront: 16000,
+      antiRollRear: 6500,
+      redline: 8000,
+      upshiftRpm: 7600,
+      downshiftRpm: 3800,
+      launchRpm: 3800,
+      gears: [3.2, 2.1, 1.56, 1.23, 1.0, 0.84],
+      finalDrive: 5.4,
+      rearTorqueSplit: 1,
+      torqueCurve: [
+        [1000, 170],
+        [3000, 270],
+        [5000, 320],
+        [6500, 335],
+        [8000, 285],
+      ],
+      brakeFront: 3900,
+      brakeRear: 3200,
+      countersteerAssist: 0.65,
+      downforce: 0.5,
+    },
+    livery: {
+      base: '#c9ccd0',
+      lower: '#1a1b1e',
+      primary: '#123a7a',
+      deep: '#0b2350',
+      stripe: '#d3202b',
+      shard: '#d3202b',
+      ink: '#123a7a',
+      brand: 'HALDEN',
+      sponsor: 'NORDSEE',
+      number: '9',
+      crew: 'L. BRANDT  ·  T. VOSS',
+    },
+  },
 ]
 
 export const DEFAULT_CAR = CARS[0]
@@ -213,6 +266,7 @@ export function currentCar(): CarSpec {
 /** Loads a car's numbers into the shared `CAR` config; callers then refresh physics and visuals. */
 export function selectCar(spec: CarSpec): void {
   current = spec
+  setBodyStyle(BODY_STYLES[spec.body])
   Object.assign(CAR, structuredClone(BASE), structuredClone(spec.tuning))
 }
 

@@ -41,8 +41,9 @@ Pick a car on the start screen, or press `V` during a run to switch to the next 
 | Vortex S4 | AWD, 62% rear | Group B-style. Lots of turbo torque, light and twitchy. |
 | Falco 131 | RWD | Classic rear-drive saloon. Slides on the throttle. |
 | Mistral Kit Car | FWD | Light, high-revving front-driver. Use the handbrake to turn in. |
+| Halden 9R Coupé | RWD, rear engine | Classic rear-engined sports coupé. Great traction on exit; lift mid-corner and the tail swings round. |
 
-All four share the hatchback body and wheel layout. Each has its own mass, inertia, suspension, gearing, torque curve, torque split and brakes (`src/game/vehicle/cars.ts`), and its own livery. The car names and teams are fictional.
+The Halden has its own fastback coupé body with round headlamps, a ducktail and a full-width tail-light bar. The others share the hatchback body, and all five share the wheel layout. Each has its own mass, inertia, suspension, gearing, torque curve, torque split and brakes (`src/game/vehicle/cars.ts`), and its own livery. The car names and teams are fictional.
 
 ## Graphics quality
 
@@ -64,7 +65,7 @@ The high tier is meant for a dedicated or recent integrated GPU. If the frame ra
 - **Lighting** (`src/game/graphics/environment.ts`): an alpine HDRI provides the sky and image-based lighting. A shadow-casting sun is aligned with the brightest point of the HDRI, whose sun disc is clamped so the light is not counted twice.
 - **Materials** (`src/game/graphics/splatMaterial.ts`): terrain and road blend three PBR texture sets per vertex. The blend is based on each texture's height, so gravel fills the cracks between grass and rock. The road shader darkens the wheel ruts and lightens loose gravel near the edges.
 - **Vegetation** (`src/game/graphics/scenery.ts`): instanced spruces made from drooping, alpha-tested branch cards around a dark core. They sit among scanned rocks and outcrops and wind-animated grass tufts.
-- **Car** (`src/game/vehicle/carModel.ts`, `carShape.ts`, `carLivery.ts`): a hatchback body lofted from cross-sections, with flared wheel arches. Each car's livery is painted on a canvas and projected onto the body in object space, using separate side, top, front and rear views. The shader adds tinted glass, matte trims and dirt that builds up on loose surfaces. The car also has clearcoat paint, a rear wing, six-spoke gravel rims, brake discs and calipers, and brake lights.
+- **Car** (`src/game/vehicle/carModel.ts`, `carShape.ts`, `carLivery.ts`): a hatchback or fastback coupé body (`carShape.ts` body styles) lofted from cross-sections, with flared wheel arches. Each car's livery is painted on a canvas and projected onto the body in object space, using separate side, top, front and rear views. The shader adds tinted glass, matte trims and dirt that builds up on loose surfaces. The car also has clearcoat paint, a rear wing, six-spoke gravel rims, brake discs and calipers, and brake lights.
 - **Post-processing** (`src/game/graphics/postfx.ts`): N8AO ambient occlusion, bloom, AgX tone mapping, a light contrast and saturation grade, a vignette, and SMAA.
 - **HUD** (`src/game/hud.ts`): the stage time, a vertical progress bar with lap markers, a lap-split board, and an analog tachometer showing the gear and speed.
 
@@ -78,7 +79,7 @@ The high tier is meant for a dedicated or recent integrated GPU. If the frame ra
 | `?view=side\|front` | Frame the car from the side or front instead of the chase camera |
 | `?codriver=zh\|en\|off` | Co-driver language (otherwise the saved choice, default 中文) |
 | `?music=0\|1` | Music off or on |
-| `?car=kestrel\|vortex\|falco\|mistral` | Start in this car (otherwise the saved choice) |
+| `?car=kestrel\|vortex\|falco\|mistral\|halden` | Start in this car (otherwise the saved choice) |
 
 ## Scripts
 

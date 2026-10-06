@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { CAR } from './config'
 import { createLivery, type Livery } from './carLivery'
 import type { LiveryScheme } from './cars'
-import { BODY, halfSection, stations, topY } from './carShape'
+import { BODY, bodyStyle, halfSection, stations, topY } from './carShape'
 import type { Vehicle } from './vehicle'
 
 /** Must match the atlas layout documented in carLivery.ts. */
@@ -39,11 +39,13 @@ const LIVERY_GLSL = /* glsl */ `
   diffuseColor.rgb *= base;
 `
 
+type AddMesh = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, rx?: number, ry?: number, rz?: number) => THREE.Mesh
+
 export class CarModel {
   readonly group = new THREE.Group()
   private readonly wheels: { steer: THREE.Group; spin: THREE.Group }[] = []
   private readonly dirt = { value: 0.35 }
-  private livery: Livery
+  private readonly livery: Livery
   private readonly uniforms: { tLivery: { value: THREE.Texture }; tMask: { value: THREE.Texture }; tDirt: { value: THREE.Texture }; uDirt: { value: number } }
   /** Trim pieces painted in the livery's accent and base colors. */
   private readonly accentMat = new THREE.MeshPhysicalMaterial({ roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.08 })
@@ -63,7 +65,8 @@ export class CarModel {
       tDirt: { value: this.livery.dirt },
       uDirt: this.dirt,
     }
-    this.setTrimColors(scheme)
+    this.accentMat.color.set(scheme.primary)
+    this.baseMat.color.set(scheme.base)
     this.buildBody()
     this.buildDetails()
     this.buildWheels()
@@ -90,22 +93,22 @@ export class CarModel {
     this.tailMat.emissiveIntensity = braking ? 4 : 0.4
   }
 
-  /** Repaints the body for another car; the shape is shared by every car. */
-  setLivery(scheme: LiveryScheme): void {
-    const old = this.livery
-    this.livery = createLivery(scheme)
-    this.uniforms.tLivery.value = this.livery.color
-    this.uniforms.tMask.value = this.livery.mask
-    this.uniforms.tDirt.value = this.livery.dirt
-    old.color.dispose()
-    old.mask.dispose()
-    old.dirt.dispose()
-    this.setTrimColors(scheme)
-  }
-
-  private setTrimColors(scheme: LiveryScheme): void {
-    this.accentMat.color.set(scheme.primary)
-    this.baseMat.color.set(scheme.base)
+  /** Frees the model's GPU resources once it has been removed from the scene. */
+  dispose(): void {
+    const materials = new Set<THREE.Material>()
+    this.group.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.geometry.dispose()
+      for (const m of [mesh.material].flat()) materials.add(m)
+    })
+    for (const m of materials) {
+      ;(m as THREE.MeshStandardMaterial).map?.dispose()
+      m.dispose()
+    }
+    this.livery.color.dispose()
+    this.livery.mask.dispose()
+    this.livery.dirt.dispose()
   }
 
   /** 0 = freshly washed, 1 = caked in stage dirt. */
@@ -185,7 +188,9 @@ export class CarModel {
     const lamp = new THREE.MeshStandardMaterial({ color: 0xf4f2ea, emissive: 0xfff2d0, emissiveIntensity: 1.6, roughness: 0.1 })
     const hook = new THREE.MeshStandardMaterial({ color: 0xff5a10, roughness: 0.4 })
 
-    const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0) => {
+    const chrome = new THREE.MeshStandardMaterial({ color: 0xd0d2d6, roughness: 0.15, metalness: 1 })
+
+    const add: AddMesh = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => {
       const mesh = new THREE.Mesh(geo, mat)
       mesh.position.set(x, y, z)
       mesh.rotation.set(rx, ry, rz)
@@ -193,7 +198,56 @@ export class CarModel {
       return mesh
     }
 
-    // Rear wing: airfoil main plane, endplates and pylons.
+    const coupe = bodyStyle().kind === 'coupe'
+    if (coupe) {
+      // Ducktail lip on the engine lid.
+      add(new THREE.BoxGeometry(1.3, 0.03, 0.3), bodyColor, 0, topY(-1.78) + 0.04, -1.78, 0.28)
+      add(new THREE.BoxGeometry(1.3, 0.05, 0.02), bodyColor, 0, topY(-1.78) + 0.065, -1.92)
+    } else this.buildWing(add, carbon, accent)
+
+    // Mirrors.
+    for (const s of [-1, 1]) {
+      add(new THREE.SphereGeometry(1, 16, 10).scale(0.1, 0.06, 0.075), bodyColor, s * 0.96, 0.4, 0.56)
+      add(new THREE.BoxGeometry(0.12, 0.025, 0.05), matte, s * 0.87, 0.37, 0.58)
+      add(new THREE.CircleGeometry(1, 16).scale(0.085, 0.048, 1), mirrorGlass, s * 0.96, 0.4, 0.484, 0, Math.PI)
+    }
+
+    // Roof scoop and antenna.
+    if (!coupe) add(new THREE.BoxGeometry(0.34, 0.05, 0.3), matte, 0, topY(-0.25) + 0.03, -0.25)
+    const antennaZ = coupe ? -0.6 : -1.2
+    add(new THREE.CylinderGeometry(0.003, 0.006, 0.36, 6), matte, 0.22, topY(antennaZ) + 0.18, antennaZ)
+
+    // Lamps.
+    for (const s of [-1, 1]) {
+      if (coupe) {
+        // Round headlamps standing up out of the front wings.
+        const y = topY(1.7) - 0.01
+        add(new THREE.SphereGeometry(1, 20, 12).scale(0.095, 0.095, 0.05), lamp, s * 0.6, y, 1.74)
+        add(new THREE.TorusGeometry(0.095, 0.012, 8, 24), chrome, s * 0.6, y, 1.74)
+      } else {
+        add(new THREE.SphereGeometry(1, 20, 10).scale(0.19, 0.04, 0.05), lamp, s * 0.53, 0.118, 1.955, 0, s * 0.18)
+        add(new THREE.BoxGeometry(0.09, 0.28, 0.04), this.tailMat, s * 0.73, 0.32, -1.915, -0.45)
+      }
+      add(new THREE.SphereGeometry(1, 12, 8).scale(0.055, 0.055, 0.02), lamp, s * 0.6, -0.2, 2.025)
+    }
+    if (coupe) add(new THREE.BoxGeometry(1.62, 0.06, 0.03), this.tailMat, 0, 0.155, -1.99)
+
+    // Splitter, sump guard, mud flaps, exhaust and tow hooks.
+    add(new THREE.BoxGeometry(1.42, 0.025, 0.16), carbon, 0, -0.395, 1.95)
+    add(new THREE.BoxGeometry(1.0, 0.02, 1.1), alloy, 0, -0.41, 1.25)
+    for (const s of [-1, 1]) {
+      for (const cz of [CAR.frontAxle, CAR.rearAxle]) {
+        add(new THREE.BoxGeometry(0.24, 0.22, 0.012), matte, s * 0.72, -0.47, cz - 0.5)
+      }
+    }
+    add(new THREE.CylinderGeometry(0.045, 0.05, 0.2, 14, 1, true), pipeMat, -0.5, -0.33, -1.95, Math.PI / 2)
+    add(new THREE.CircleGeometry(0.042, 14), matte, -0.5, -0.33, -1.93, 0, Math.PI)
+    add(new THREE.TorusGeometry(0.035, 0.009, 6, 14), hook, 0.5, -0.29, 2.035, 0, Math.PI / 2)
+    add(new THREE.TorusGeometry(0.035, 0.009, 6, 14), hook, -0.55, -0.27, -2.0, 0, Math.PI / 2)
+  }
+
+  /** Rear wing: airfoil main plane, endplates and pylons. */
+  private buildWing(add: AddMesh, carbon: THREE.Material, accent: THREE.Material): void {
     const foil = new THREE.Shape()
     foil.moveTo(0, 0)
     foil.bezierCurveTo(-0.02, 0.035, -0.12, 0.05, -0.38, 0.02)
@@ -209,37 +263,6 @@ export class CarModel {
       add(new THREE.BoxGeometry(0.022, 0.18, 0.16), carbon, s * 0.34, 0.8, -1.6)
     }
     add(new THREE.BoxGeometry(1.22, 0.025, 0.26), carbon, 0, topY(-1.45) + 0.005, -1.52, -0.32)
-
-    // Mirrors.
-    for (const s of [-1, 1]) {
-      add(new THREE.SphereGeometry(1, 16, 10).scale(0.1, 0.06, 0.075), bodyColor, s * 0.96, 0.4, 0.56)
-      add(new THREE.BoxGeometry(0.12, 0.025, 0.05), matte, s * 0.87, 0.37, 0.58)
-      add(new THREE.CircleGeometry(1, 16).scale(0.085, 0.048, 1), mirrorGlass, s * 0.96, 0.4, 0.484, 0, Math.PI)
-    }
-
-    // Roof scoop and antenna.
-    add(new THREE.BoxGeometry(0.34, 0.05, 0.3), matte, 0, topY(-0.25) + 0.03, -0.25)
-    add(new THREE.CylinderGeometry(0.003, 0.006, 0.36, 6), matte, 0.22, topY(-1.2) + 0.18, -1.2)
-
-    // Lamps.
-    for (const s of [-1, 1]) {
-      add(new THREE.SphereGeometry(1, 20, 10).scale(0.19, 0.04, 0.05), lamp, s * 0.53, 0.118, 1.955, 0, s * 0.18)
-      add(new THREE.SphereGeometry(1, 12, 8).scale(0.055, 0.055, 0.02), lamp, s * 0.6, -0.2, 2.025)
-      add(new THREE.BoxGeometry(0.09, 0.28, 0.04), this.tailMat, s * 0.73, 0.32, -1.915, -0.45)
-    }
-
-    // Splitter, sump guard, mud flaps, exhaust and tow hooks.
-    add(new THREE.BoxGeometry(1.42, 0.025, 0.16), carbon, 0, -0.395, 1.95)
-    add(new THREE.BoxGeometry(1.0, 0.02, 1.1), alloy, 0, -0.41, 1.25)
-    for (const s of [-1, 1]) {
-      for (const cz of [CAR.frontAxle, CAR.rearAxle]) {
-        add(new THREE.BoxGeometry(0.24, 0.22, 0.012), matte, s * 0.72, -0.47, cz - 0.5)
-      }
-    }
-    add(new THREE.CylinderGeometry(0.045, 0.05, 0.2, 14, 1, true), pipeMat, -0.5, -0.33, -1.95, Math.PI / 2)
-    add(new THREE.CircleGeometry(0.042, 14), matte, -0.5, -0.33, -1.93, 0, Math.PI)
-    add(new THREE.TorusGeometry(0.035, 0.009, 6, 14), hook, 0.5, -0.29, 2.035, 0, Math.PI / 2)
-    add(new THREE.TorusGeometry(0.035, 0.009, 6, 14), hook, -0.55, -0.27, -2.0, 0, Math.PI / 2)
   }
 
   private buildWheels(): void {

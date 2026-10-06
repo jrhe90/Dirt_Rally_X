@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { CAR } from './config'
 
 /**
- * Body shape of the hatchback in car-local meters: x left, y up, z forward, origin at the
+ * Body shapes in car-local meters: x left, y up, z forward, origin at the
  * physics body's center. The ground sits about 0.63 m below the origin at rest.
  */
 
@@ -14,7 +14,21 @@ export const BODY = {
   wheelWell: 0.56,
 }
 
-const TOP_POINTS: [number, number][] = [
+export type BodyStyle = {
+  kind: 'hatch' | 'coupe'
+  /** Side silhouette (z, y) from the front bumper to the rear. */
+  top: [number, number][]
+  /** Rearmost z of the side windows, and the B-pillar's z. */
+  sideGlassRear: number
+  bPillar: number
+  /** z ranges of the windscreen and rear screen as seen from above. */
+  windscreen: [number, number]
+  rearScreen: [number, number]
+  /** Top of the windscreen as seen head-on. */
+  windscreenTop: number
+}
+
+const HATCH_TOP: [number, number][] = [
   [2.03, -0.02],
   [1.99, 0.09],
   [1.88, 0.165],
@@ -34,13 +48,70 @@ const TOP_POINTS: [number, number][] = [
   [-2.0, 0.0],
 ]
 
-const topTable: { z: number; y: number }[] = (() => {
-  const curve = new THREE.SplineCurve(TOP_POINTS.map(([z, y]) => new THREE.Vector2(z, y)))
+/** Rear-engined fastback: low sloping bonnet, short glasshouse and a long tapering tail. */
+const COUPE_TOP: [number, number][] = [
+  [2.03, -0.06],
+  [1.99, 0.05],
+  [1.88, 0.12],
+  [1.6, 0.18],
+  [1.2, 0.235],
+  [0.85, 0.28],
+  [0.6, 0.39],
+  [0.35, 0.53],
+  [0.08, 0.66],
+  [-0.25, 0.71],
+  [-0.55, 0.69],
+  [-0.85, 0.61],
+  [-1.2, 0.49],
+  [-1.55, 0.39],
+  [-1.8, 0.33],
+  [-1.93, 0.28],
+  [-1.99, 0.18],
+  [-2.0, 0.02],
+]
+
+export const BODY_STYLES: Record<BodyStyle['kind'], BodyStyle> = {
+  hatch: {
+    kind: 'hatch',
+    top: HATCH_TOP,
+    sideGlassRear: -1.6,
+    bPillar: -0.7,
+    windscreen: [0.04, 0.74],
+    rearScreen: [-1.85, -1.56],
+    windscreenTop: 0.76,
+  },
+  coupe: {
+    kind: 'coupe',
+    top: COUPE_TOP,
+    sideGlassRear: -1.0,
+    bPillar: -0.62,
+    windscreen: [0.12, 0.6],
+    rearScreen: [-1.15, -0.62],
+    windscreenTop: 0.64,
+  },
+}
+
+let style = BODY_STYLES.hatch
+let topTable = buildTopTable(style.top)
+
+function buildTopTable(points: [number, number][]): { z: number; y: number }[] {
+  const curve = new THREE.SplineCurve(points.map(([z, y]) => new THREE.Vector2(z, y)))
   return curve
     .getPoints(600)
     .map((p) => ({ z: p.x, y: p.y }))
     .sort((a, b) => a.z - b.z)
-})()
+}
+
+export function bodyStyle(): BodyStyle {
+  return style
+}
+
+/** Switches the shape every function below describes; rebuild the car model afterwards. */
+export function setBodyStyle(next: BodyStyle): void {
+  if (next === style) return
+  style = next
+  topTable = buildTopTable(next.top)
+}
 
 /** Upper silhouette (bonnet, windscreen, roof, hatch) seen from the side. */
 export function topY(z: number): number {

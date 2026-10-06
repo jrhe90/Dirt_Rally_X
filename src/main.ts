@@ -181,7 +181,7 @@ async function main() {
 
   const { world, vehicle, race, terrain } = stage
   const { scene, env, scenery } = buildScene(renderer, stage, assets, quality)
-  const car = new CarModel(currentCar().livery)
+  let car = new CarModel(currentCar().livery)
   scene.add(car.group)
   const dust = new DustSystem(quality.dustParticles)
   scene.add(dust.points)
@@ -234,7 +234,10 @@ async function main() {
     selectCar(spec)
     saveCarChoice(spec)
     vehicle.applyCar()
-    car.setLivery(spec.livery)
+    scene.remove(car.group)
+    car.dispose()
+    car = new CarModel(spec.livery)
+    scene.add(car.group)
     hud.buildTacho()
   }
 
