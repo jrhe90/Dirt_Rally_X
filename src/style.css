@@ -462,6 +462,17 @@ kbd {
   padding: 0 1.5rem;
 }
 
+.overlay-hint {
+  min-height: 1.2em;
+  font-size: 0.8rem;
+  color: rgba(240, 230, 210, 0.6);
+  text-align: center;
+}
+
+.overlay.ready .overlay-hint {
+  display: none;
+}
+
 .overlay.error .overlay-status {
   color: #ffb08a;
 }

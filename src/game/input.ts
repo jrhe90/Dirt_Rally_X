@@ -69,7 +69,12 @@ function approach(current: number, target: number, rate: number, dt: number): nu
 }
 
 function readGamepad() {
-  const pads = navigator.getGamepads?.() ?? []
+  let pads: (Gamepad | null)[] = []
+  try {
+    pads = navigator.getGamepads?.() ?? []
+  } catch {
+    // Embedded frames may not be allowed to use gamepads; keyboard and touch still work.
+  }
   const pad = Array.from(pads).find((p) => p && p.connected)
   if (!pad) {
     prevPadButtons = []

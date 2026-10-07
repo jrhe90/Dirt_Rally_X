@@ -40,10 +40,31 @@ const DEBUG_VIEWS: Record<string, THREE.Vector3> = {
   front: new THREE.Vector3(-2.4, 0.9, 5.6),
 }
 
-function fail(message: string): never {
+const overlayHint = overlay.querySelector<HTMLDivElement>('.overlay-hint')!
+
+function showError(message: string): void {
   overlay.classList.add('error')
   overlayStatus.textContent = message
+  overlayHint.textContent = ''
+}
+
+function fail(message: string): never {
+  showError(message)
   throw new Error(message)
+}
+
+/** Loading steps still in flight, named on screen if loading takes unusually long. */
+const pending = new Set<string>()
+
+function track<T>(label: string, promise: Promise<T>): Promise<T> {
+  pending.add(label)
+  return promise.finally(() => pending.delete(label))
+}
+
+/** Shows a loading step and gives the browser a moment to paint it before heavy synchronous work. */
+async function step(text: string): Promise<void> {
+  overlayStatus.textContent = text
+  await new Promise((r) => setTimeout(r, 50))
 }
 
 function createRenderer(quality: Quality): THREE.WebGLRenderer {
@@ -160,24 +181,31 @@ async function main() {
   const quality = detectQuality()
   const renderer = createRenderer(quality)
 
+  canvas.addEventListener('webglcontextlost', () => {
+    if (!overlay.classList.contains('done')) showError('The graphics driver reset (WebGL context lost). Reload, or add ?quality=low to the address.')
+  })
+
   overlayStatus.textContent = 'Loading textures and lighting…'
-  const assetsPromise = loadAssets(renderer, (loaded, total) => {
-    overlayStatus.textContent = `Loading textures and lighting… ${Math.round((loaded / total) * 100)}%`
-  }).catch((err) => {
+  const assetsPromise = track(
+    'textures and lighting',
+    loadAssets(renderer, (loaded, total) => {
+      if (overlay.classList.contains('error')) return
+      overlayStatus.textContent = `Loading textures and lighting… ${Math.round((loaded / total) * 100)}%`
+    }),
+  ).catch((err) => {
     console.error(err)
-    fail('The stage textures could not be loaded. Run `npm run fetch-assets`, then reload.')
+    fail(`The stage textures could not be loaded (${err instanceof Error ? err.message : String(err)}). Run \`npm run fetch-assets\`, then reload.`)
   })
 
   let stage: Stage
   try {
-    stage = await createStage()
+    stage = await track('physics engine', createStage())
   } catch (err) {
     console.error(err)
-    fail('The physics engine failed to start. Try reloading the page or using a recent desktop browser.')
+    fail(`The physics engine failed to start (${err instanceof Error ? err.message : String(err)}). Try reloading the page or using a recent desktop browser.`)
   }
   const assets = await assetsPromise
-  overlayStatus.textContent = 'Building the stage…'
-  await new Promise((r) => setTimeout(r, 0))
+  await step('Building the stage…')
 
   const { world, vehicle, race, terrain } = stage
   const { scene, env, scenery } = buildScene(renderer, stage, assets, quality)
@@ -260,8 +288,10 @@ async function main() {
   }
 
   placeCar(startPose())
-  // Compile every shader before the overlay fades so the first frames do not hitch.
-  await renderer.compileAsync(scene, rig.camera)
+  // Compile every shader before the overlay fades so the first frames do not hitch. This is only
+  // a warm-up: some drivers never report completion, so stop waiting after a few seconds.
+  await step('Preparing shaders…')
+  await Promise.race([track('shaders', renderer.compileAsync(scene, rig.camera)), new Promise((r) => setTimeout(r, 6000))])
 
   const HOLD: DriveControls = { throttle: 0, brake: 0, steer: 0, handbrake: 1 }
   const STOP: DriveControls = { throttle: 0, brake: 1, steer: 0, handbrake: 0 }
@@ -378,4 +408,20 @@ async function main() {
   restart()
 }
 
-main()
+const loadStart = performance.now()
+const watchdog = window.setInterval(() => {
+  if (overlay.classList.contains('ready') || overlay.classList.contains('error')) return window.clearInterval(watchdog)
+  if (performance.now() - loadStart > 15000 && pending.size > 0) {
+    overlayHint.textContent = `Still waiting on: ${[...pending].join(', ')}`
+  }
+}, 1000)
+
+const reportError = (err: unknown) => {
+  console.error(err)
+  if (overlay.classList.contains('error') || overlay.classList.contains('done')) return
+  showError(`Something went wrong while loading: ${err instanceof Error ? err.message : String(err)}`)
+}
+window.addEventListener('error', (e) => reportError(e.error ?? e.message))
+window.addEventListener('unhandledrejection', (e) => reportError(e.reason))
+
+main().catch(reportError)
