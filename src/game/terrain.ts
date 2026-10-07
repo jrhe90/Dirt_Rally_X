@@ -79,7 +79,7 @@ export class Terrain {
 
   createCollider(world: RAPIER.World): RAPIER.Collider {
     const collider = world.createCollider(
-      RAPIER.ColliderDesc.trimesh(this.positions, this.indices).setFriction(0.8),
+      RAPIER.ColliderDesc.trimesh(this.positions, this.indices, RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES).setFriction(0.8),
     )
 
     const h = WORLD_HALF_SIZE

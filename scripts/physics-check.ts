@@ -169,6 +169,35 @@ for (const spec of cars) {
     check('stays on the road', offRoad < 3, `${offRoad.toFixed(1)} s off road`)
     check('jumps and crests get air', airborne > 0.15, `${airborne.toFixed(2)} s fully airborne`)
     check('lap pace', maxKmh > 70 && sumKmh / samples > 40, `max ${maxKmh.toFixed(0)} km/h, avg ${(sumKmh / samples).toFixed(0)} km/h`)
+
+    // Handbrake pulled in the air: the landing should cost speed, not stop the car dead.
+    // (A chassis scraping the road used to catch triangle edges in the road mesh and stop.)
+    const jump = track.features.filter((f) => f.kind === 'jump')[1].distance
+    race.reset()
+    const pose = race.recoveryPose(track.pointAt(jump - 70).position)
+    vehicle.reset(pose.position, pose.yaw)
+    let takeoff = -1
+    let takeoffStep = -1
+    let landed = -1
+    let minAfter = Infinity
+    let steps = 0
+    run(world, vehicle, 12, () => {
+      const hb = takeoff >= 0 && (landed < 0 || steps - landed < 180)
+      const c = autopilot(track, vehicle, race.trackIndex, LATERAL_G)
+      return { ...c, throttle: steps < 120 || hb ? 0 : kmh(vehicle) < 75 ? 1 : 0, brake: 0, handbrake: hb ? 1 : 0 }
+    }, () => {
+      steps++
+      race.update(PHYSICS_STEP, vehicle.position, true)
+      const d = track.project(vehicle.position.x, vehicle.position.z, race.trackIndex).distance
+      if (takeoff < 0 && steps > 120 && vehicle.wheelsOnGround === 0 && d > jump - 25 && d < jump + 10) {
+        takeoff = kmh(vehicle)
+        takeoffStep = steps
+      }
+      if (takeoff >= 0 && landed < 0 && vehicle.wheelsOnGround >= 2 && steps - takeoffStep > 10) landed = steps
+      if (landed >= 0) minAfter = Math.min(minAfter, kmh(vehicle))
+      return landed >= 0 && steps - landed > 120
+    })
+    check('handbrake landing keeps rolling', takeoff > 60 && minAfter > 25, `took off at ${takeoff.toFixed(0)} km/h, slowest in 1 s after landing ${minAfter.toFixed(0)} km/h`)
   }
 
 }

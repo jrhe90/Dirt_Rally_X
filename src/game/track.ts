@@ -351,7 +351,8 @@ export class Track {
 
   createColliders(world: RAPIER.World): RAPIER.Collider {
     const road = world.createCollider(
-      RAPIER.ColliderDesc.trimesh(this.ribbonPositions, this.ribbonIndices).setFriction(0.8),
+      // Without internal-edge fixing, a chassis scraping the road can catch a triangle edge and stop dead.
+      RAPIER.ColliderDesc.trimesh(this.ribbonPositions, this.ribbonIndices, RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES).setFriction(0.8),
     )
 
     const start = this.samples[0]
