@@ -287,6 +287,7 @@ export const CARS: CarSpec[] = [
       ],
       brakeFront: 7400,
       brakeRear: 4900,
+      handbrakeForce: 9500,
       drag: 0.62,
       downforce: 0,
     },

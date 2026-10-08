@@ -52,6 +52,11 @@ export const CAR = {
   brakeFront: 4400,
   brakeRear: 2900,
   handbrakeGrip: 0.9,
+  /**
+   * Most braking force the handbrake can hold per rear wheel (N at the contact patch). Below this the
+   * wheel locks and slides; under a landing's load spike the tyre out-grips it and keeps rolling.
+   */
+  handbrakeForce: 5000,
 
   drag: 0.42,
   downforce: 0.8,

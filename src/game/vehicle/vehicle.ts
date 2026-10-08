@@ -384,12 +384,12 @@ export class Vehicle {
     }
   }
 
-  private applyTyre(w: Wheel, dt: number, driveForce: number, brake: number, locked: boolean, drive: number): void {
+  private applyTyre(w: Wheel, dt: number, driveForce: number, brake: number, handbrake: boolean, drive: number): void {
     w.steer = w.front ? this.steerAngle : 0
 
     if (!w.inContact) {
       w.slip = 0
-      w.angularVelocity = locked ? 0 : w.angularVelocity * 0.995 + drive * 2 * dt * 60
+      w.angularVelocity = handbrake ? 0 : w.angularVelocity * 0.995 + drive * 2 * dt * 60
       w.spin += w.angularVelocity * dt
       return
     }
@@ -414,8 +414,13 @@ export class Vehicle {
     let fx: number
     let fy: number
 
+    // The handbrake holds a fixed torque, so the wheel only stays locked while that beats the tyre's
+    // sliding grip. Under a landing's load spike the tyre wins: the wheel rolls, keeps its side grip,
+    // and the handbrake just brakes at its limit, instead of friction scaling with the impact load.
+    const slideF = surf.slide * CAR.handbrakeGrip * w.load
+    const locked = handbrake && slideF <= CAR.handbrakeForce
+
     if (locked) {
-      const slideF = surf.slide * CAR.handbrakeGrip * w.load
       const vPlanar = Math.hypot(vLong, vLat)
       if (vPlanar > 0.5) {
         fx = (-vLong / vPlanar) * slideF
@@ -430,8 +435,8 @@ export class Vehicle {
       fy = -maxF * lateralCurve(slipAngle)
       fx = driveForce - surf.rolling * w.load * THREE.MathUtils.clamp(vLong, -1, 1)
 
-      if (brake > 0) {
-        const bf = brake * (w.front ? CAR.brakeFront : CAR.brakeRear)
+      const bf = brake * (w.front ? CAR.brakeFront : CAR.brakeRear) + (handbrake ? CAR.handbrakeForce : 0)
+      if (bf > 0) {
         fx += Math.abs(vLong) > 0.4 ? -Math.sign(vLong) * bf : THREE.MathUtils.clamp((-vLong * this.cornerMass) / dt, -bf, bf)
       }
 
