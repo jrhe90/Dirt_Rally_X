@@ -4,9 +4,10 @@ import { glow, Kit, type Materials } from './kit'
 
 /**
  * A wedge hypercar roadster: low flat bonnet between two pointed fender peaks with triangular
- * headlights, a full-width front light bar over a black fascia, a black glass canopy that
- * tapers back over the rear deck, wide rear haunches, a flat full-width rear blade with red
- * light bars, and a black diffuser with four round nozzles. Car-local axes: +x forward, +y up,
+ * headlights, a full-width front light bar over a black fascia, a bronze-tinted glass canopy
+ * that starts just behind the front axle and tapers to a point over the rear deck, black lower
+ * bodywork that sweeps up toward the rear, wide haunches ending in pointed fins, a flat
+ * full-width rear blade with red light bars, and a black diffuser with four round nozzles. Car-local axes: +x forward, +y up,
  * +z to the right; origin at the sim's body center (the road is 0.62 m below). For flight the
  * wheels fold flat and the jets fire from their hubs; the rear nozzles glow with them.
  */
@@ -22,6 +23,8 @@ const ARCH_RADIUS = 0.42
 const PEARL = [0.84, 0.85, 0.87] as const
 const BLACK = [0.03, 0.032, 0.036] as const
 const TRIM = [0.012, 0.013, 0.015] as const
+const BRONZE = [0.15, 0.095, 0.055] as const
+const CHROME = [0.78, 0.78, 0.8] as const
 
 type Curve = [number, number][]
 
@@ -49,17 +52,18 @@ const HALF_WIDTH: Curve = [
 ]
 /** Top of the black lower bodywork: low along the sills, rising into the nose and the rear quarters. */
 const SILL: Curve = [
-  [2.2, -0.1], [1.85, -0.3], [-0.7, -0.31], [-1.6, -0.18], [-2.2, -0.02],
+  [2.2, -0.1], [1.85, -0.3], [0.9, -0.34], [-0.4, -0.22], [-1.0, -0.06], [-1.6, 0.0], [-2.2, 0.02],
 ]
 
+/** In plan the canopy is a long teardrop: a straight windshield base, widest at the doors, a point at the back. */
 const CANOPY_WIDTH: Curve = [
-  [0.88, 0.72], [0.4, 0.77], [-0.4, 0.75], [-1.1, 0.6], [-1.8, 0.3],
+  [1.02, 0.66], [0.5, 0.77], [-0.3, 0.79], [-1.0, 0.63], [-1.6, 0.32], [-2.0, 0.03],
 ]
 const CANOPY_TOP: Curve = [
-  [0.88, 0.11], [0.55, 0.26], [0.15, 0.43], [-0.2, 0.5], [-0.75, 0.5], [-1.25, 0.41], [-1.8, 0.255],
+  [1.02, 0.088], [0.65, 0.25], [0.2, 0.43], [-0.25, 0.5], [-0.8, 0.49], [-1.35, 0.38], [-2.0, 0.262],
 ]
-const CANOPY_FRONT = 0.88
-const CANOPY_REAR = -1.8
+const CANOPY_FRONT = 1.02
+const CANOPY_REAR = -2.0
 
 function bottomY(x: number): number {
   if (x > 1.9) return -0.47 + 0.11 * ((x - 1.9) / 0.3) ** 2
@@ -112,11 +116,11 @@ function canopySection(x: number): Point[] {
   const h = Math.max(0, along(CANOPY_TOP, x) - base)
   // Flat, steep side glass meeting a nearly flat roof at a crisp edge.
   return [
-    { z: wc, y: base, color: TRIM },
-    { z: wc * 0.96, y: base + h * 0.55, color: TRIM },
-    { z: wc * 0.86, y: base + h * 0.93, color: TRIM },
-    { z: wc * 0.62, y: base + h * 0.995, color: TRIM },
-    { z: 0, y: base + h + 0.01, color: TRIM },
+    { z: wc, y: base, color: BRONZE },
+    { z: wc * 0.96, y: base + h * 0.55, color: BRONZE },
+    { z: wc * 0.86, y: base + h * 0.93, color: BRONZE },
+    { z: wc * 0.62, y: base + h * 0.995, color: BRONZE },
+    { z: 0, y: base + h + 0.01, color: BRONZE },
   ]
 }
 
@@ -183,38 +187,49 @@ function canopyStations(): number[] {
   return xs
 }
 
-/** Large wheel with a dark six-spoke turbine face; the hub doubles as the jet nozzle. */
-function buildWheel(materials: Materials): { group: THREE.Group; spinner: THREE.Group; hub: THREE.Mesh } {
+/**
+ * Large wheel: seven black twisted spokes over white aero inserts, like the reference car.
+ * The hub doubles as the jet nozzle. `width` is the tyre width (the rears are wider).
+ */
+function buildWheel(materials: Materials, width: number): { group: THREE.Group; spinner: THREE.Group; hub: THREE.Mesh } {
   const group = new THREE.Group()
   const spinner = new THREE.Group()
   group.add(spinner)
   const kit = new Kit()
-  const tire = new THREE.CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, 0.28, 32)
+  const face = width / 2
+  const tire = new THREE.CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, width, 32)
   tire.rotateX(Math.PI / 2)
   kit.add('matte', tire, [0.022, 0.022, 0.025])
   const sidewall = new THREE.TorusGeometry(WHEEL_RADIUS - 0.035, 0.035, 6, 32)
-  sidewall.translate(0, 0, 0.13)
+  sidewall.translate(0, 0, face - 0.01)
   kit.add('matte', sidewall, [0.03, 0.03, 0.033])
-  const rim = new THREE.CylinderGeometry(0.255, 0.255, 0.02, 32)
-  rim.rotateX(Math.PI / 2)
-  rim.translate(0, 0, 0.13)
-  kit.add('paint', rim, [0.02, 0.02, 0.024])
-  const lip = new THREE.TorusGeometry(0.258, 0.012, 6, 32)
-  lip.translate(0, 0, 0.142)
-  kit.add('paint', lip, [0.3, 0.31, 0.33])
-  for (let i = 0; i < 6; i++) {
-    // Swept spokes: each one is twisted a little so the face reads as a turbine.
-    const spoke = new THREE.BoxGeometry(0.06, 0.2, 0.025)
-    spoke.translate(0, 0.14, 0)
-    spoke.rotateZ(0.35)
-    spoke.translate(0, 0, 0.15)
-    spoke.rotateZ((i / 6) * Math.PI * 2)
-    kit.add('paint', spoke, [0.11, 0.115, 0.125])
+  const insert = new THREE.CylinderGeometry(0.262, 0.262, 0.02, 40)
+  insert.rotateX(Math.PI / 2)
+  insert.translate(0, 0, face + 0.002)
+  kit.add('paint', insert, [0.8, 0.81, 0.83])
+  const lip = new THREE.TorusGeometry(0.265, 0.014, 6, 40)
+  lip.translate(0, 0, face + 0.01)
+  kit.add('paint', lip, [0.02, 0.02, 0.024])
+  for (let i = 0; i < 7; i++) {
+    // Each spoke is two segments bent against the rotation, so the face reads as a turbine.
+    const base = (i / 7) * Math.PI * 2
+    for (const [r0, r1, bend] of [[0.06, 0.16, 0], [0.155, 0.262, 0.42]]) {
+      const seg = new THREE.BoxGeometry(0.045, r1 - r0, 0.03)
+      seg.translate(0, (r0 + r1) / 2, 0)
+      seg.rotateZ(bend * ((r0 + r1) / 2 / 0.262))
+      seg.translate(0, 0, face + 0.02)
+      seg.rotateZ(base)
+      kit.add('paint', seg, [0.015, 0.015, 0.018])
+    }
   }
+  const cap = new THREE.CylinderGeometry(0.075, 0.075, 0.025, 20)
+  cap.rotateX(Math.PI / 2)
+  cap.translate(0, 0, face + 0.02)
+  kit.add('paint', cap, [0.015, 0.015, 0.018])
   spinner.add(kit.build(materials))
-  const hubGeometry = new THREE.CylinderGeometry(0.075, 0.075, 0.03, 16)
+  const hubGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.03, 16)
   hubGeometry.rotateX(Math.PI / 2)
-  hubGeometry.translate(0, 0, 0.16)
+  hubGeometry.translate(0, 0, face + 0.034)
   const hub = new THREE.Mesh(hubGeometry, new THREE.MeshBasicMaterial({ color: new THREE.Color(0.05, 0.06, 0.07) }))
   group.add(hub)
   return { group, spinner, hub }
@@ -265,7 +280,7 @@ export function createRoadster(materials: Materials): Roadster {
     new THREE.MeshPhysicalMaterial({
       vertexColors: true,
       roughness: 0.04,
-      metalness: 0.35,
+      metalness: 0.45,
       clearcoat: 1,
       clearcoatRoughness: 0.02,
       envMap,
@@ -308,24 +323,40 @@ export function createRoadster(materials: Materials): Roadster {
     PEARL,
   )
   kit.box('glow', -2.37, -2.345, 0.274, 0.29, -rw + 0.08, rw - 0.08, glow([1, 0.04, 0.03], 4))
-  // Main tail-light bar in a thin black slot just under the blade, then a white tail panel.
+  // Main tail-light bar in a thin black slot just under the blade, then a white tail panel with a blank plate.
   kit.box('paint', REAR - 0.006, REAR + 0.02, 0.155, 0.245, -0.86, 0.86, TRIM)
   kit.box('glow', REAR - 0.014, REAR + 0.01, 0.18, 0.22, -0.82, 0.82, glow([1, 0.03, 0.02], 6))
-  kit.box('paint', REAR - 0.012, REAR + 0.02, -0.08, 0.15, -0.62, 0.62, PEARL)
-  // Black diffuser across the bottom with short vertical strakes.
-  kit.box('paint', REAR - 0.07, REAR + 0.3, -0.46, -0.1, -rw + 0.04, rw - 0.04, TRIM)
-  for (const z of [-0.78, -0.39, 0, 0.39, 0.78]) kit.box('matte', REAR - 0.09, REAR + 0.3, -0.46, -0.36, z - 0.012, z + 0.012, BLACK)
+  kit.box('paint', REAR - 0.012, REAR + 0.02, -0.12, 0.15, -0.66, 0.66, PEARL)
+  kit.box('matte', REAR - 0.025, REAR - 0.005, -0.07, 0.07, -0.17, 0.17, [0.75, 0.76, 0.78])
+  for (const s of [1, -1]) kit.box('glow', REAR - 0.016, REAR + 0.01, -0.105, -0.09, s * 0.4, s * 0.62, glow([1, 0.04, 0.03], 3))
+  // Black diffuser: a bar carrying four chrome nozzles, with strakes below.
+  kit.box('paint', REAR - 0.07, REAR + 0.3, -0.46, -0.12, -rw + 0.04, rw - 0.04, TRIM)
+  kit.box('paint', REAR - 0.1, REAR + 0.1, -0.35, -0.17, -0.74, 0.74, BLACK)
+  for (const z of [-0.78, -0.39, 0, 0.39, 0.78]) kit.box('matte', REAR - 0.12, REAR + 0.3, -0.47, -0.35, z - 0.012, z + 0.012, BLACK)
   const nozzleGlow = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.04, 0.045, 0.05) })
-  const nozzleFace = new THREE.CylinderGeometry(0.07, 0.07, 0.01, 20)
+  const nozzleFace = new THREE.CylinderGeometry(0.058, 0.058, 0.01, 20)
   nozzleFace.rotateZ(Math.PI / 2)
-  for (const z of [-0.58, -0.2, 0.2, 0.58]) {
-    const ring = new THREE.CylinderGeometry(0.095, 0.095, 0.06, 24, 1, true)
-    ring.rotateZ(Math.PI / 2)
-    ring.translate(REAR - 0.09, -0.27, z)
-    kit.add('paint', ring, [0.28, 0.27, 0.25])
+  for (const z of [-0.54, -0.18, 0.18, 0.54]) {
+    const tip = new THREE.CylinderGeometry(0.075, 0.075, 0.08, 24, 1, true)
+    tip.rotateZ(Math.PI / 2)
+    tip.translate(REAR - 0.13, -0.26, z)
+    kit.add('glass', tip, CHROME)
     const face = new THREE.Mesh(nozzleFace, nozzleGlow)
-    face.position.set(REAR - 0.075, -0.27, z)
+    face.position.set(REAR - 0.12, -0.26, z)
     body.add(face)
+  }
+  // Pointed fins where the rear haunches rise past the deck.
+  for (const s of [1, -1]) {
+    const zo = s * (rw - 0.04)
+    const zi = s * (rw - 0.2)
+    kit.hexa(
+      'paint',
+      [
+        [-2.2, 0.27, zi], [-1.25, 0.27, zi], [-1.25, 0.27, zo], [-2.2, 0.27, zo],
+        [-2.24, 0.38, s * (rw - 0.16)], [-1.25, 0.28, s * (rw - 0.16)], [-1.25, 0.28, s * (rw - 0.07)], [-2.24, 0.38, s * (rw - 0.07)],
+      ],
+      PEARL,
+    )
   }
   // Small red side markers on the rear quarters.
   for (const s of [1, -1]) kit.box('glow', -1.95, -1.9, -0.06, -0.03, s * (along(HALF_WIDTH, -1.92) + 0.005), s * (along(HALF_WIDTH, -1.92) + 0.012), glow([1, 0.05, 0.03], 4))
@@ -335,7 +366,7 @@ export function createRoadster(materials: Materials): Roadster {
   const nozzles: THREE.Vector3[] = []
   for (const x of [AXLE_X, -AXLE_X]) {
     for (const side of [1, -1] as const) {
-      const { group, spinner, hub } = buildWheel(materials)
+      const { group, spinner, hub } = buildWheel(materials, x > 0 ? 0.28 : 0.34)
       const pivot = new THREE.Group()
       pivot.position.set(x, WHEEL_Y, side * TRACK_Z)
       // Left wheels face outward too.
