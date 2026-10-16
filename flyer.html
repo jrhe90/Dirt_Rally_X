@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#06080c" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Thrust Runner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="surface">
+      <canvas id="game"></canvas>
+
+      <div id="hud" hidden>
+        <div class="hud-left">
+          <div class="hud-distance"><span id="distance">0</span><small>M</small></div>
+          <div class="hud-sub">BEST <span id="best">0</span></div>
+        </div>
+        <div class="hud-right">
+          <div class="hud-cells" aria-label="Charge cells"><i class="cell-icon"></i><span id="cells">0</span></div>
+          <button id="pause" class="icon-button" data-ui aria-label="Pause">II</button>
+        </div>
+        <div id="style-total" class="hud-style"></div>
+      </div>
+
+      <div id="popups" aria-hidden="true"></div>
+      <div id="hint" class="hint" hidden></div>
+      <div id="hold-prompt" class="hold-prompt" hidden>HOLD TO FLY</div>
+
+      <section id="title" class="screen">
+        <div class="title-block">
+          <p class="eyebrow">NIGHT HIGHWAY</p>
+          <h1>THRUST<br />RUNNER</h1>
+          <p class="tagline">Hop the traffic. Dodge the lasers. Don't touch anything.</p>
+        </div>
+        <ul class="controls">
+          <li><b>Hold</b> anywhere to fire the jets</li>
+          <li><b>Swipe up</b> or <b>double-tap</b> in the air to barrel roll</li>
+          <li><b>Tap</b> just before touchdown for a clean landing</li>
+        </ul>
+        <div class="start-prompt">HOLD TO START</div>
+        <div class="title-stats">
+          <span>BEST <b id="title-best">0</b></span>
+          <span><i class="cell-icon"></i> <b id="title-cells">0</b></span>
+        </div>
+        <div class="title-buttons" data-ui>
+          <button class="toggle" data-toggle="sound" data-ui>SOUND ON</button>
+          <button class="toggle" data-toggle="music" data-ui>MUSIC ON</button>
+        </div>
+        <p class="rotate-note">Best played in landscape</p>
+      </section>
+
+      <section id="results" class="screen" hidden>
+        <p class="eyebrow" id="crash-cause">CRASHED</p>
+        <div class="score-big"><span id="result-score">0</span><small>SCORE</small></div>
+        <div id="new-best" class="new-best" hidden>NEW BEST</div>
+        <dl class="result-rows">
+          <div><dt>Distance</dt><dd id="result-distance">0 m</dd></div>
+          <div><dt>Style</dt><dd id="result-style">0</dd></div>
+          <div><dt>Charge cells</dt><dd id="result-cells">0</dd></div>
+        </dl>
+        <div class="result-buttons">
+          <button id="retry" class="primary" data-ui>RETRY</button>
+          <button id="menu" class="secondary" data-ui>MENU</button>
+        </div>
+      </section>
+
+      <section id="paused" class="screen" hidden>
+        <h2>PAUSED</h2>
+        <div class="result-buttons column">
+          <button id="resume" class="primary" data-ui>RESUME</button>
+          <button class="toggle" data-toggle="sound" data-ui>SOUND ON</button>
+          <button class="toggle" data-toggle="music" data-ui>MUSIC ON</button>
+          <button id="quit" class="secondary" data-ui>QUIT RUN</button>
+        </div>
+      </section>
+
+      <div id="error" class="screen" hidden></div>
+    </div>
+    <script type="module" src="/src/flyer/main.ts"></script>
+  </body>
+</html>

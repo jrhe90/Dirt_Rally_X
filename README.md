@@ -71,6 +71,7 @@ The high tier is meant for a dedicated or recent integrated GPU. If the frame ra
 npm run dev            # dev server on port 3847
 npm run build          # typecheck and production build
 npm run test:physics   # headless handling checks (acceleration, braking, cornering, autopilot lap)
+npm run test:flyer     # Thrust Runner: prove every obstacle pattern is survivable
 npm run fetch-assets   # download the CC0 textures, HDRI and rock models into public/assets
 npm run generate-codriver  # re-render the co-driver voice after changing the track or the lines
 ```
@@ -78,6 +79,28 @@ npm run generate-codriver  # re-render the co-driver voice after changing the tr
 `generate-codriver` exports the stage's pace-note phrases (`scripts/pacenote-phrases.json`) and renders them with Piper. It needs Python with `pip install "piper-tts[zh]"` and ffmpeg. The voice models (about 60 MB each) and the Chinese pronunciation model download into `.cache/voices`, which is git-ignored. The spoken text for every call is in `src/game/audio/codriverLines.json`.
 
 `test:physics` drives the car without a browser and fails if the numbers drift out of range. Run it after changing anything in `src/game/vehicle/config.ts`.
+
+## Thrust Runner (flying roadster runner)
+
+A second game in this repo: a one-touch endless runner for phones, in the style of Jetpack Joyride. A jet-powered roadster drives itself along a night highway. Hold to fire the four hub jets and let go to drop, so you can hop car transporters, slip under overpasses, dodge speed-trap lasers and interceptors, and collect charge cells.
+
+Run `npm run dev` and open [http://localhost:3847/flyer.html](http://localhost:3847/flyer.html). To play on a phone on the same network, open `http://<your-computer's-IP>:3847/flyer.html`. Both landscape and portrait work; the camera refits to the screen.
+
+| Action | Touch | Keyboard |
+| --- | --- | --- |
+| Fire the jets (climb) | Hold anywhere | `Space` / `↑` / `W` |
+| Barrel roll (in the air) | Swipe up or double-tap | `Shift` / `→` / `D` |
+| Pause | ‖ button | `Esc` / `P` |
+
+- **Flying**: the jets spool up in about 0.1 s and the nose pitches with your climb. When you drop fast near the road, the jets fire on their own to cushion the landing. Tap the jets just before touchdown for a clean landing, which scores points and gives a short speed boost.
+- **Barrel roll**: a full turn about the car's length. The jets turn with the body, so you lose lift and sink. For most of the roll you pass straight through lasers, drones and interceptors. Landing while still rolling crashes the car.
+- **Obstacles** (`src/flyer/sim/patterns.ts`): 15 hand-made patterns, chosen at random by difficulty. They use car transporters (parked or moving), overpasses, sign gantries and floodlight rigs, roadside billboards, wrecking-ball cranes, laser speed traps with a warning first, interceptors that lock onto your height, police drones, and a quarter-pipe ramp wall. Patterns are laid out in seconds of travel, so reaction time stays fair as the speed ramps from 13 to 30 m/s.
+- **Score**: distance plus style points (near miss +25, roll +100 per roll in a chain, roll dodge +150, clean landing +50). The best score and the total of charge cells are saved in the browser.
+- **Code**: `src/flyer/sim/` is a pure TypeScript fixed-step simulation that doesn't import Three.js. `src/flyer/render/` draws it. The roadster is lofted from cross-sections, the props are merged into a few vertex-coloured draw calls, and the smoke is instanced particle quads. The soundtrack reuses the rally game's synth music engine.
+
+`npm run test:flyer` runs a look-ahead bot through every pattern, at the low, middle and high end of its difficulty range with 12 seeds each, then flies 12 full runs to 5000 m. The bot only uses hold and release, no rolls. The test fails if any pattern can't be survived. Add a name to check a single pattern: `npm run test:flyer -- lasers`.
+
+Debug URL parameters: `?demo` (the autopilot plays), `?seed=5`, `?at=2000` (start this many meters in, for speed and difficulty), `?pattern=lasers` (only spawn that pattern), `?ff=4` (with `?demo`, skip ahead this many seconds), `?quality=low|high`.
 
 ## Credits
 

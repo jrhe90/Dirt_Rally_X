@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
@@ -10,5 +11,13 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3847,
     strictPort: true,
+  },
+  build: {
+    rolldownOptions: {
+      input: {
+        main: resolve(import.meta.dirname, 'index.html'),
+        flyer: resolve(import.meta.dirname, 'flyer.html'),
+      },
+    },
   },
 })

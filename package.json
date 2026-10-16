@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test:physics": "tsx scripts/physics-check.ts",
+    "test:flyer": "tsx scripts/flyer-check.ts",
     "fetch-assets": "node scripts/fetch-assets.mjs",
     "generate-codriver": "tsx scripts/export-pacenotes.ts && python3 scripts/generate-codriver.py"
   },
