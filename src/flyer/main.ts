@@ -23,6 +23,9 @@ const fixedSeed = params.has('seed') ? Number(params.get('seed')) : null
 const onlyPattern = params.get('pattern') ?? undefined
 /** Debug: fast-forward this many seconds of a demo run before drawing. */
 const fastForward = Number(params.get('ff') ?? 0) || 0
+/** Debug: close-up of the car with no obstacles or UI; add `&fly` to hover. */
+const showcase = params.has('showcase')
+const showcaseFly = params.has('fly')
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const surface = document.querySelector<HTMLElement>('#surface')!
@@ -229,7 +232,7 @@ function frame(now: number): void {
     accumulator += dt
     let steps = 0
     while (accumulator >= STEP && steps < MAX_STEPS_PER_FRAME) {
-      const input = pilot ? pilot.input(sim) : { hold: screen === 'playing' && controls.holding, roll: steps === 0 && controls.takeRoll() }
+      const input = showcase ? { hold: showcaseFly && sim.car.y < 3.2, roll: false } : pilot ? pilot.input(sim) : { hold: screen === 'playing' && controls.holding, roll: steps === 0 && controls.takeRoll() }
       step(sim, input)
       accumulator -= STEP
       steps++
@@ -257,7 +260,13 @@ function frame(now: number): void {
 hud.setToggles(!save.muted, save.music)
 hud.setTitleStats(save.best, save.cells)
 hud.setBest(save.best)
-if (demo) {
+if (showcase) {
+  begin()
+  sim.spawnX = Infinity
+  controls.enabled = false
+  document.body.classList.add('showcase')
+  Object.assign(window, { flyerDebug: () => ({ phase: sim.phase, y: sim.car.y, spool: sim.car.spool, screen, t: sim.t }) })
+} else if (demo) {
   begin()
   for (let i = 0; i < fastForward / STEP && sim.phase === 'flying'; i++) step(sim, pilot!.input(sim))
   sim.events.length = 0

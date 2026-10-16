@@ -19,6 +19,16 @@ type Layout = {
   ahead: number
 }
 
+/** Debug close-ups of the car (`?showcase=front|rear|side|three|rear-three`): camera offset and look offset from the car. */
+const SHOWCASE: Record<string, [number, number, number, number, number, number]> = {
+  front: [6.2, 0.45, 0.05, 0, -0.1, 0],
+  rear: [-6.2, 0.9, 1.4, 0, -0.05, 0],
+  side: [0.1, 0.25, 7.2, 0, -0.1, 0],
+  three: [4.6, 1.3, 4.4, 0, -0.15, 0],
+  'rear-three': [-4.8, 1.2, 4.2, 0, -0.1, 0],
+}
+const showcase = SHOWCASE[new URLSearchParams(window.location.search).get('showcase') ?? '']
+
 const LANDSCAPE: Layout = { azimuth: 0.42, elevation: 0.2, fov: 36, behind: 5, ahead: 44 }
 const PORTRAIT: Layout = { azimuth: 1.0, elevation: 0.42, fov: 50, behind: 5, ahead: 34 }
 
@@ -51,7 +61,7 @@ export class CameraRig {
     const f = THREE.MathUtils.clamp((1.6 - aspect) / (1.6 - 0.46), 0, 1)
     this.layout = mix(LANDSCAPE, PORTRAIT, f)
     this.camera.aspect = aspect
-    this.camera.fov = this.layout.fov
+    this.camera.fov = showcase ? 30 : this.layout.fov
     this.camera.updateProjectionMatrix()
     this.fit()
   }
@@ -118,6 +128,12 @@ export class CameraRig {
     const x = s.car.x + this.crashLean
     this.camera.position.set(x + this.offset.x, this.offset.y, this.offset.z)
     this.camera.lookAt(x + this.lookOffset.x, this.lookOffset.y, this.lookOffset.z)
+    if (showcase) {
+      const [px, py, pz, lx, ly, lz] = showcase
+      this.camera.position.set(s.car.x + px, s.car.y + py, pz)
+      this.camera.lookAt(s.car.x + lx, s.car.y + ly, lz)
+      return
+    }
 
     if (this.trauma > 0) {
       const t = this.trauma * this.trauma

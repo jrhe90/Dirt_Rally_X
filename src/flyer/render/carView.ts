@@ -94,7 +94,7 @@ export class CarView {
     }
 
     const headlight = new THREE.SpotLight(0xf2f6ff, 260, 70, 0.42, 0.55, 1.6)
-    headlight.position.set(2.0, 0, 0)
+    headlight.position.set(2.5, -0.05, 0)
     headlight.target.position.set(22, -2.2, 0)
     this.car.body.add(headlight, headlight.target)
 

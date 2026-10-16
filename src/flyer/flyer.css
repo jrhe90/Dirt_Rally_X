@@ -47,6 +47,13 @@ body {
   display: none !important;
 }
 
+.showcase #hud,
+.showcase .screen,
+.showcase .hint,
+.showcase .hold-prompt {
+  display: none !important;
+}
+
 button {
   font: inherit;
   color: inherit;
