@@ -84,7 +84,7 @@ npm run generate-codriver  # re-render the co-driver voice after changing the tr
 
 A second game in this repo: a one-touch endless runner for phones, in the style of Jetpack Joyride. A jet-powered roadster drives itself along a night highway. Hold to fire the four hub jets and let go to drop, so you can hop car transporters, slip under overpasses, dodge speed-trap lasers and interceptors, and collect charge cells.
 
-Run `npm run dev` and open [http://localhost:3847/flyer.html](http://localhost:3847/flyer.html). To play on a phone on the same network, open `http://<your-computer's-IP>:3847/flyer.html`. Both landscape and portrait work; the camera refits to the screen.
+Run `npm run dev` and open [http://localhost:3847/flyer.html](http://localhost:3847/flyer.html). When deployed to Vercel (`vercel.json` is set up), the game is at `/play`. To play on a phone on the same network, open `http://<your-computer's-IP>:3847/flyer.html`. Both landscape and portrait work; the camera refits to the screen.
 
 | Action | Touch | Keyboard |
 | --- | --- | --- |
