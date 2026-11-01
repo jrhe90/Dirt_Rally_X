@@ -17,6 +17,7 @@ export default defineConfig({
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
         flyer: resolve(import.meta.dirname, 'flyer.html'),
+        autodrive: resolve(import.meta.dirname, 'autodrive.html'),
       },
     },
   },

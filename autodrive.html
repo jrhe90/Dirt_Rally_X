@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0d11" />
+    <title>AutoPursuit</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,700;1,600;1,800;1,900&family=Barlow:wght@500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="hud" hidden>
+      <div class="vignette-alert" id="alert-frame"></div>
+
+      <section class="hud-bounty">
+        <div class="label">BOUNTY</div>
+        <div class="bounty" id="bounty">0</div>
+        <div class="heat" id="heat" aria-label="Heat level">
+          <i></i><i></i><i></i><i></i><i></i>
+          <span class="heat-label">HEAT</span>
+        </div>
+        <div class="pursuit" id="pursuit-line"></div>
+        <div class="meter" id="meter" hidden><div class="meter-fill" id="meter-fill"></div><span id="meter-label"></span></div>
+      </section>
+
+      <div id="feed" class="feed" aria-live="polite"></div>
+      <div id="banner" class="banner" hidden><div class="banner-main" id="banner-main"></div><div class="banner-sub" id="banner-sub"></div></div>
+
+      <section class="ap-panel" id="ap-panel">
+        <header class="ap-head">
+          <svg class="wheel" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3 11.5 Q12 8 21 11.5 M12 13.5 V21.5" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12.6" r="2" fill="currentColor"/></svg>
+          <div class="ap-title"><b id="ap-state">AUTOPILOT</b><span id="ap-profile">STANDARD</span></div>
+          <div class="ap-set"><small>SET</small><b id="ap-set">121</b></div>
+          <div class="limit" title="Speed limit"><span id="limit">110</span></div>
+        </header>
+        <canvas id="ap-screen"></canvas>
+        <footer class="ap-reason" id="ap-reason">Press F to engage</footer>
+      </section>
+
+      <section class="speedo">
+        <svg viewBox="0 0 220 130" class="speedo-arc" aria-hidden="true">
+          <path class="arc-bg" d="M 20 120 A 92 92 0 0 1 200 120" />
+          <path class="arc-fill" id="arc-fill" d="M 20 120 A 92 92 0 0 1 200 120" />
+          <path class="arc-set" id="arc-set" d="" />
+        </svg>
+        <div class="speed"><span id="speed">0</span><small>KM/H</small></div>
+        <div class="damage"><span>DAMAGE</span><div class="damage-bar"><div id="damage"></div></div></div>
+      </section>
+
+      <div class="hints" id="hints">
+        <kbd>F</kbd> autopilot · <kbd>←</kbd><kbd>→</kbd> tap: lane change, hold: take over · <kbd>W</kbd><kbd>S</kbd> drive/brake · <kbd>+</kbd><kbd>−</kbd> set speed · <kbd>1</kbd>–<kbd>4</kbd> profile · <kbd>C</kbd> camera · <kbd>V</kbd> overlay · <kbd>Esc</kbd> pause
+      </div>
+
+      <div id="touch" class="touch">
+        <div class="touch-row left">
+          <button type="button" data-hold="left" aria-label="Left">◀</button>
+          <button type="button" data-hold="right" aria-label="Right">▶</button>
+        </div>
+        <div class="touch-row top">
+          <button type="button" class="small ap" data-tap="autopilot">AUTO</button>
+          <button type="button" class="small" data-tap="speedDown">SPD−</button>
+          <button type="button" class="small" data-tap="speedUp">SPD+</button>
+          <button type="button" class="small" data-tap="camera">CAM</button>
+          <button type="button" class="small" data-tap="pause">II</button>
+        </div>
+        <div class="touch-row right">
+          <button type="button" class="brake" data-hold="brake">BRAKE</button>
+          <button type="button" class="gas" data-hold="gas">GAS</button>
+        </div>
+      </div>
+    </div>
+
+    <section id="title" class="screen title">
+      <div class="title-copy">
+        <p class="eyebrow">SEACREST COAST HIGHWAY</p>
+        <h1>AUTO<span>PURSUIT</span></h1>
+        <p class="tagline">Your car drives itself. The police would like a word.</p>
+      </div>
+      <form class="setup" id="setup">
+        <fieldset>
+          <legend>Mode</legend>
+          <div class="seg" data-setting="mode">
+            <button type="button" data-value="pursuit">Hot pursuit</button>
+            <button type="button" data-value="cruise">Free drive</button>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Autopilot profile</legend>
+          <div class="seg" data-setting="profile">
+            <button type="button" data-value="chill">Chill</button>
+            <button type="button" data-value="standard">Standard</button>
+            <button type="button" data-value="hurry">Hurry</button>
+            <button type="button" data-value="pursuit">Pursuit</button>
+          </div>
+          <p class="hint" id="profile-hint"></p>
+        </fieldset>
+        <button type="submit" class="go">START <span>↵</span></button>
+      </form>
+      <ul class="title-controls">
+        <li><kbd>F</kbd> engage / disengage autopilot</li>
+        <li><kbd>←</kbd> <kbd>→</kbd> tap to request a lane change, hold to take over</li>
+        <li><kbd>S</kbd> brake (disengages) · <kbd>W</kbd> accelerate</li>
+        <li><kbd>+</kbd> <kbd>−</kbd> or mouse wheel: set speed · <kbd>1</kbd>–<kbd>4</kbd> profile</li>
+      </ul>
+    </section>
+
+    <section id="results" class="screen results" hidden>
+      <p class="eyebrow" id="result-kind">BUSTED</p>
+      <div class="result-bounty"><span id="result-bounty">0</span><small>BOUNTY</small></div>
+      <dl class="result-rows" id="result-rows"></dl>
+      <div class="result-buttons">
+        <button id="retry" class="go">RETRY</button>
+        <button id="menu" class="ghost">MENU</button>
+      </div>
+    </section>
+
+    <section id="paused" class="screen paused" hidden>
+      <h2>PAUSED</h2>
+      <div class="result-buttons column">
+        <button id="resume" class="go">RESUME</button>
+        <button id="toggle-music" class="ghost">MUSIC ON</button>
+        <button id="toggle-sound" class="ghost">SOUND ON</button>
+        <button id="quit" class="ghost">QUIT</button>
+      </div>
+    </section>
+
+    <div id="error" class="screen error" hidden></div>
+    <script type="module" src="/src/autodrive/main.ts"></script>
+  </body>
+</html>
