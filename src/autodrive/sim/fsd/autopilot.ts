@@ -39,6 +39,8 @@ export class Autopilot {
   status: AutopilotStatus = { reason: '', leadId: null, leadGap: null, takeover: false, signal: 0, laneChange: false, vRef: 0 }
   private request = 0
   private requestTimer = 0
+  /** The lane change in progress was asked for by the driver. */
+  private requested = false
   private nextPerception = 0
   private nextPlan = 0
   private takeoverTimer = 0
@@ -129,7 +131,11 @@ export class Autopilot {
     this.plan = result.best
     this.alternatives = result.alternatives
     // Request satisfied once we've committed to that lane.
-    if (this.request !== 0 && this.planner.changing && this.planner.targetLane === this.planner.fromLane - this.request) this.request = 0
+    if (this.request !== 0 && this.planner.changing && this.planner.targetLane === this.planner.fromLane - this.request) {
+      this.request = 0
+      this.requested = true
+    }
+    if (!this.planner.changing) this.requested = false
     if (this.request !== 0) {
       const goal = laneOf(e.d) - this.request
       if (goal < 0 || goal >= LANES) this.request = 0
@@ -178,8 +184,8 @@ export class Autopilot {
     else if (near('block', 260) && p.laneChange) st.reason = 'Routing through roadblock gap'
     else if (near('wreck', 150) && p.laneChange) st.reason = 'Avoiding crashed vehicle'
     else if (p.vTarget < Math.max(2, e.v * 0.5) && (near('block', 200) || near('wreck', 200) || spikes)) st.reason = 'Obstacle ahead · stopping'
-    else if (this.planner.changing && this.request !== 0) st.reason = 'Lane change requested'
-    else if (this.planner.changing && this.planner.targetLane > this.planner.fromLane) st.reason = 'Moving out of passing lane'
+    else if ((this.planner.changing && this.requested) || this.request !== 0) st.reason = 'Lane change requested'
+    else if (this.planner.changing && this.planner.targetLane > this.planner.fromLane && this.profile.keepRight > 0 && !(lead && lead.vs < r.vRef - 3)) st.reason = 'Moving out of passing lane'
     else if (this.planner.changing) st.reason = 'Changing lanes to pass slower traffic'
     else if (lead && st.leadGap !== null && st.leadGap < this.profile.headway * 1.6 + 0.6 && lead.vs < r.vRef - 1) st.reason = `Following vehicle ahead · ${st.leadGap.toFixed(1)} s`
     else if (r.vCurve < this.setSpeed - 2) st.reason = 'Slowing for curve'

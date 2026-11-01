@@ -257,8 +257,7 @@ export class Planner {
       if (lane === refLane) {
         addLat(c, 1.4, lane, false)
         addLat(c, 2.6, lane, false)
-        addLat(c + 0.75, 1.8, lane, true)
-        addLat(c - 0.75, 1.8, lane, true)
+        for (const off of [-0.8, -0.4, 0.4, 0.8]) addLat(c + off, 1.8, lane, true)
       } else {
         const base = profile.laneChangeTime * speedFactor * (1 + 0.35 * (Math.abs(lane - refLane) - 1))
         if (this.changing && lane === this.fromLane) {
@@ -303,7 +302,7 @@ export class Planner {
       for (const o of input.obstacles) {
         if (o.follower || Math.abs(o.d[0] - c) > o.hd + EGO.width / 2) continue
         const gap = o.s[0] - s0 - o.hs - EGO.length / 2
-        if (gap < 0 || gap > 260) continue
+        if (gap < 0 || gap > 300) continue
         const closing = vRef - Math.max(0, o.vs)
         if (closing <= 0) continue
         const ttr = gap / Math.max(1, vs0 - o.vs + 0.5)
@@ -317,9 +316,9 @@ export class Planner {
     const latStatic = laterals.map((L) => {
       let c = profile.smooth * 0.011 * L.jerk
       c += 0.45 * (flow.get(L.lane) ?? 0)
-      const laneCost = [0.6, 0, 0.15, 7][L.lane] * (L.lane === LANES ? 1 : profile.keepRight)
+      const laneCost = [0.6, 0, 0.15, 9][L.lane] * (L.lane === LANES ? 1 : profile.keepRight)
       c += laneCost
-      if (L.nudge) c += 0.9
+      if (L.nudge) c += 0.5 + Math.abs(L.targetD - laneCenter(L.lane))
       if (L.lane !== refLane) {
         // Passing costs a real speed advantage; moving back right is cheap.
         c += L.lane > refLane && L.lane < LANES ? 0.35 : profile.passGain * 0.9
@@ -400,8 +399,12 @@ export class Planner {
             const latReach = ehd + o.hd
             if (o.follower) continue
             const pad = o.threat * 0.5
-            if (Math.abs(ds) < lonReach + 0.05 && dd < latReach + 0.05 && t < hard) hard = t
-            if (Math.abs(ds) < lonReach + mS * o.margin && dd < latReach + mD * o.margin + pad) soft = true
+            // Swept: at speed the car covers more than an obstacle's length between samples,
+            // so also catch passing through it (ds changes sign) while overlapping laterally.
+            const dsPrev = o.s[k - 1] - G.s[k - 1]
+            const crossed = dsPrev > 0 !== ds > 0 && Math.min(dd, Math.abs(o.d[k - 1] - L.d[k - 1])) < latReach
+            if (((Math.abs(ds) < lonReach + 0.05 && dd < latReach + 0.05) || crossed) && t < hard) hard = t
+            if ((Math.abs(ds) < lonReach + mS * o.margin && dd < latReach + mD * o.margin + pad) || crossed) soft = true
             if (dd < latReach + 0.2) {
               if (ds > 0) {
                 // Following distance to whatever is ahead in our corridor.
@@ -448,8 +451,8 @@ export class Planner {
     const keep = bestByLane.get(refLane) ?? null
     const prep = Math.max(0, profile.laneChangePrep)
     if (this.changing) {
-      // Committed: carry on unless that has become unsafe.
-      if (keep) chosen = keep
+      // Committed: carry on unless that has become unsafe or far worse than backing out.
+      if (keep && (!best || keep.cost <= best.cost + 3)) chosen = keep
       this.pendingLane = null
     } else if (best && laterals[best.L].lane !== refLane) {
       const lane = laterals[best.L].lane

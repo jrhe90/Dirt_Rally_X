@@ -72,9 +72,10 @@ export class Input {
   private padSteer = 0
   private padThrottle = 0
   private padBrake = 0
-  private dirStart = 0
-  private dir = 0
-  private dirSource: 'key' | 'touch' | 'pad' = 'key'
+  /** When each steering source went down (keys, touch buttons, stick), ms. */
+  private readonly downAt = new Map<string, number>()
+  private padDir = 0
+  private tookOver = false
   onAny: (() => void) | null = null
 
   constructor() {
@@ -86,15 +87,18 @@ export class Input {
         e.preventDefault()
       }
       if (THROTTLE.has(e.code) || BRAKE.has(e.code) || LEFT.has(e.code) || RIGHT.has(e.code)) e.preventDefault()
+      if (!this.keys.has(e.code) && (LEFT.has(e.code) || RIGHT.has(e.code))) this.press(LEFT.has(e.code) ? 'left' : 'right')
       this.keys.add(e.code)
       this.onAny?.()
     })
     window.addEventListener('keyup', (e) => {
       this.keys.delete(e.code)
+      if (LEFT.has(e.code) || RIGHT.has(e.code)) this.release(LEFT.has(e.code) ? 'left' : 'right')
     })
     window.addEventListener('blur', () => {
       this.keys.clear()
       this.touch.clear()
+      this.downAt.clear()
     })
     window.addEventListener('wheel', (e) => {
       if ((e.target as HTMLElement)?.closest?.('.screen')) return
@@ -105,11 +109,13 @@ export class Input {
       const down = (e: PointerEvent) => {
         e.preventDefault()
         el.setPointerCapture?.(e.pointerId)
+        if (!this.touch.has(name) && (name === 'left' || name === 'right')) this.press(`touch-${name}`)
         this.touch.add(name)
         el.classList.add('down')
         this.onAny?.()
       }
       const up = () => {
+        if (this.touch.has(name) && (name === 'left' || name === 'right')) this.release(`touch-${name}`)
         this.touch.delete(name)
         el.classList.remove('down')
       }
@@ -125,6 +131,19 @@ export class Input {
         this.onAny?.()
       })
     }
+  }
+
+  private press(source: string): void {
+    this.downAt.set(source, performance.now())
+    this.tookOver = false
+  }
+
+  /** A quick tap of a direction is a lane-change request (the indicator stalk). */
+  private release(source: string): void {
+    const t0 = this.downAt.get(source)
+    this.downAt.delete(source)
+    if (t0 === undefined) return
+    if (performance.now() - t0 < TAP * 1000) this.queue.push(source.endsWith('left') ? 'laneLeft' : 'laneRight')
   }
 
   private pollPad(): void {
@@ -171,22 +190,27 @@ export class Input {
     const l = any(LEFT) || this.touch.has('left')
     const r = any(RIGHT) || this.touch.has('right')
     const keyDir = l === r ? 0 : l ? 1 : -1
+    // The stick behaves like keys for taps and holds.
     const padDir = Math.abs(this.padSteer) > 0.5 ? Math.sign(this.padSteer) : 0
-    const dir = keyDir || padDir
-    const source: 'key' | 'touch' | 'pad' = keyDir ? (this.touch.has('left') || this.touch.has('right') ? 'touch' : 'key') : 'pad'
-    this.takeOver = false
-    const now = performance.now() / 1000
-    if (dir !== this.dir) {
-      // Released quickly: that was a tap → lane change request.
-      if (this.dir !== 0 && now - this.dirStart < TAP && autopilotEngaged) this.queue.push(this.dir > 0 ? 'laneLeft' : 'laneRight')
-      this.dir = dir
-      this.dirStart = now
-      this.dirSource = source
+    if (padDir !== this.padDir) {
+      if (this.padDir !== 0) this.release(this.padDir > 0 ? 'pad-left' : 'pad-right')
+      if (padDir !== 0) this.press(padDir > 0 ? 'pad-left' : 'pad-right')
+      this.padDir = padDir
     }
-    this.steerHeld = dir ? now - this.dirStart : 0
-    if (dir && this.steerHeld >= TAP && this.steerHeld - dt < TAP) this.takeOver = true
-    // Touch steering while engaged never takes over: on a phone the arrows are the stalk.
-    if (this.dirSource === 'touch' && autopilotEngaged) this.takeOver = false
+    // Held past the tap time: the driver is steering. Touch arrows never take over while
+    // the autopilot is engaged; on a phone they are the stalk.
+    const now = performance.now()
+    let held = 0
+    for (const [source, t0] of this.downAt) {
+      if (source.startsWith('touch') && autopilotEngaged) continue
+      held = Math.max(held, (now - t0) / 1000)
+    }
+    this.steerHeld = held
+    this.takeOver = false
+    if (held >= TAP && !this.tookOver) {
+      this.takeOver = true
+      this.tookOver = true
+    }
 
     const target = Math.abs(this.padSteer) > 0.01 ? this.padSteer : keyDir
     const rate = keyDir ? 3.2 : 6
@@ -199,9 +223,6 @@ export class Input {
     return this.steerHeld >= TAP || Math.abs(this.padSteer) > 0.25
   }
 
-  touchSteering(): boolean {
-    return this.dirSource === 'touch'
-  }
 
   actions(): Action[] {
     return this.queue.splice(0)

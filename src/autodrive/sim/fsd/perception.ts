@@ -37,7 +37,7 @@ export type Track = {
 
 export type DetectedSpikes = { id: number; s: number; d0: number; d1: number }
 
-const RANGE_FORWARD = 260
+const RANGE_FORWARD = 300
 const RANGE_REAR = 120
 const RANGE_SIDE = 90
 const FORGET_AFTER = 1.2
@@ -175,20 +175,28 @@ export class Perception {
         })
         continue
       }
-      // Alpha-beta filter on the predicted state.
+      // Alpha-beta filter. While unseen the track has already been coasted forward every
+      // update, so the prediction only covers the time since the last update.
       const gap = now - t.lastSeen
-      const ps = t.s + t.vs * gap
-      const pd = t.d + t.vd * gap
+      const ps = t.s + t.vs * dt
+      const pd = t.d + t.vd * dt
       const rs = ms - ps
       const rd = md - pd
       t.s = ps + ALPHA * rs
       t.d = pd + ALPHA * rd
       const vsPrev = t.vs
-      t.vs += (BETA * rs) / Math.max(dt, gap)
-      t.vd += (BETA * rd) / Math.max(dt, gap)
+      // After a gap, trust the new measurement for position but don't turn the jump into speed.
+      const vGain = gap > dt * 1.5 ? BETA * 0.25 : BETA
+      t.vs += (vGain * rs) / dt
+      t.vd += (vGain * rd) / dt
       // Blend toward the true speed a little: radar-free, but the networks are good at it.
       t.vs += (a.v * a.dir - t.vs) * 0.25
       t.vd += (a.vd - t.vd) * 0.2
+      // Traffic on a motorway doesn't reverse or teleport sideways.
+      if (kind === 'vehicle' || kind === 'police') {
+        t.vs = Math.max(-1, Math.min(95, t.vs))
+        t.vd = Math.max(-4, Math.min(4, t.vd))
+      }
       t.as += ((t.vs - vsPrev) / Math.max(dt, 1e-3) - t.as) * 0.15
       t.psi = a.psi
       t.kind = kind

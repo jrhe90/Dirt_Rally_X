@@ -72,6 +72,7 @@ npm run dev            # dev server on port 3847
 npm run build          # typecheck and production build
 npm run test:physics   # headless handling checks (acceleration, braking, cornering, autopilot lap)
 npm run test:flyer     # Thrust Runner: prove every obstacle pattern is survivable
+npm run test:autodrive # AutoPursuit: drive every autopilot profile through traffic
 npm run fetch-assets   # download the CC0 textures, HDRI and rock models into public/assets
 npm run generate-codriver  # re-render the co-driver voice after changing the track or the lines
 ```
@@ -101,6 +102,43 @@ Run `npm run dev` and open [http://localhost:3847/flyer.html](http://localhost:3
 `npm run test:flyer` runs a look-ahead bot through every pattern, at the low, middle and high end of its difficulty range with 12 seeds each, then flies 12 full runs to 5000 m. The bot only uses hold and release, no rolls. The test fails if any pattern can't be survived. Add a name to check a single pattern: `npm run test:flyer -- lasers`.
 
 Debug URL parameters: `?demo` (the autopilot plays), `?seed=5`, `?at=2000` (start this many meters in, for speed and difficulty), `?pattern=lasers` (only spawn that pattern), `?ff=4` (with `?demo`, skip ahead this many seconds), `?quality=low|high`.
+
+## AutoPursuit (self-driving pursuit)
+
+A third game in this repo: a hot-pursuit style chase on a sunset coast highway where your car drives itself. The autopilot keeps its lane, follows traffic, signals and changes lanes to pass, slows for curves, and in a pursuit steers around spike strips, roadblocks and ramming interceptors. You can take over at any moment, the way you would in a car with a driver-assistance system.
+
+Run `npm run dev` and open [http://localhost:3847/autodrive.html](http://localhost:3847/autodrive.html). On Vercel it is at `/autodrive`.
+
+| Action | Keyboard | Gamepad | Touch |
+| --- | --- | --- | --- |
+| Engage / disengage the autopilot | `F` | Y | AUTO |
+| Request a lane change (indicator stalk) | Tap `←` / `→`, or `Q` / `E` | Tap the stick, LB / RB | ◀ ▶ |
+| Take over steering | Hold `←` / `→` (or `A` / `D`) | Hold the stick | ◀ ▶ (when disengaged) |
+| Brake (disengages) / accelerate (overrides) | `S` / `W` | LT / RT | BRAKE / GAS |
+| Set speed | `+` / `−`, mouse wheel | D-pad | SPD+ / SPD− |
+| Driving profile | `1` Chill · `2` Standard · `3` Hurry · `4` Pursuit | | |
+| Camera (chase, far, bonnet, orbit, top) | `C` | X | CAM |
+| Autopilot overlay / runner-up paths | `V` / `B` | B | |
+| Pause / restart / music | `Esc` / `T` / `M` | Start / Back | II |
+
+- **Game**: in Hot pursuit, passing a speed camera or a parked patrol car while speeding starts a chase. Heat (1–5) rises the longer it lasts and brings more interceptors, spike strips (heat 2+) and roadblocks (heat 3+). Stay slow next to police and you are busted; stay out of reach long enough and you escape. Bounty comes from distance, near misses, dodged spikes and roadblocks, escapes, police wrecks and clean autopilot kilometres. Free drive has no police.
+- **Profiles**: Chill keeps to the 110 km/h limit with long gaps and few lane changes. Standard runs about 10% over and moves back right after passing. Hurry runs well over with tight gaps. Pursuit goes flat out (250 km/h), threads traffic and uses the shoulder.
+- **Displays**: the planned path is drawn on the road as a blue ribbon (red when the car wants you to take over), with outlines around everything it is tracking. The panel in the corner is a centre-screen style visualization: lanes, tracked vehicles (the one it follows in blue, police flashing, hazards orange), the path, set speed, the speed limit, and a sentence about what it is doing and why ("Following vehicle ahead · 1.6 s", "Signalling left · waiting for a gap", "Avoiding spike strip").
+
+How the autopilot works (`src/autodrive/sim/fsd/`):
+
+- **Perception** (`perception.ts`): simulated cameras with a 300 m forward, 120 m rear and 90 m side range. An object is seen only if a sight line to its center or a near corner isn't blocked by a vehicle at least as tall, so trucks hide what's beyond them. Measurements carry range-dependent noise, and an alpha-beta filter per track estimates velocity. Tracks that drop out of sight coast briefly.
+- **Prediction** (`prediction.ts`): each track is projected 5 s ahead. Cars with an indicator on or drifting across finish the lane change; braking cars stop; an interceptor lining up a ram is assumed to lunge at the car.
+- **Planning** (`planner.ts`): a Frenet-frame lattice, after Werling et al. Every 0.1 s it samples lateral maneuvers (keep lane, nudge within it, change one or more lanes, the shoulder in Pursuit) as minimum-jerk quintics, and speed profiles as quartics. Each pair is checked against the road edges, tyre grip, motor limits and every predicted footprint, including a swept test so nothing is skipped between samples at high speed. The cost covers jerk, comfort, speed lost against a curve-limited reference, following distance, not cutting in front of faster cars, side clearance, distance to police, lane preference and how fast each lane will flow beyond the horizon. Discretionary lane changes are signalled first and only taken if they stay the better choice; once committed, a change is only abandoned if continuing becomes unsafe. If nothing is collision-free it flies the plan that collides latest and asks you to take over.
+- **Control** (`control.ts`): lateral control works in acceleration space (the plan's lateral acceleration fed forward, plus a PD loop on position and velocity), turned into a steering angle through the bicycle model. Speed follows the plan's acceleration with feedback.
+- **World** (`src/autodrive/sim/`): a kinematic bicycle model with a friction circle for the hero car; civilian traffic with the Intelligent Driver Model and MOBIL-style lane changes (including some aggressive drivers who cut in); police that chase, flank and ram. Everything runs in Frenet coordinates on an endless generated road.
+- **Graphics** (`src/autodrive/render/`): a Preetham sky with the sun low over the sea, a sea shader with a glitter path, hills, pines, palms, street lights and sign gantries built in chunks around the car, procedural lofted cars with clearcoat paint, brake lights, indicators and police light bars, and post-processing (bloom, speed blur with colour fringing, ACES tone mapping, an orange-and-teal grade).
+
+`npm run test:autodrive` drives every profile through traffic for 4 minutes on four seeds without a browser. Chill, Standard and Hurry fail on any contact or take-over alert. Pursuit is chased at heat 3+ and fails if it averages under 120 km/h or has more than one unforced contact with civilian traffic; contacts while an interceptor is within ramming distance are reported separately. Add a profile and a duration to run one: `npm run test:autodrive -- hurry 600`.
+
+Debug URL parameters: `?demo` (skip the title screen), `?mode=pursuit|cruise`, `?profile=chill|standard|hurry|pursuit`, `?heat=3` (start a pursuit at that heat), `?seed=5`, `?ff=30` (with `?demo`, simulate that many seconds first), `?cam=chase|far|hood|orbit|top`, `?quality=low|high`, `?shadows=0`, `?nohud`, `?debug` (exposes `window.autopursuit`).
+
+The car, police, places and signs are fictional, and the autopilot is a game system, not a model of any real product.
 
 ## Credits
 

@@ -2,6 +2,7 @@ import './autodrive.css'
 import { AutoAudio } from './audio'
 import { Hud } from './hud'
 import { Input, type Action } from './input'
+import { CAMERA_MODES, type CameraMode } from './render/camera'
 import { View, detectTier } from './render/view'
 import { AutopilotScreen } from './screen'
 import { EGO, kmh, STEP } from './sim/config'
@@ -17,6 +18,13 @@ const params = new URLSearchParams(window.location.search)
 const demo = params.has('demo')
 const debugHeat = Number(params.get('heat') ?? 0) || 0
 const fixedSeed = params.has('seed') ? Number(params.get('seed')) : null
+const debug = params.has('debug')
+/** Debug: simulate this many seconds before the first frame (with ?demo). */
+const fastForward = Number(params.get('ff') ?? 0) || 0
+/** Debug: start in this camera mode. */
+const startCam = params.get('cam')
+const forcedProfile = params.get('profile') as ProfileName | null
+const forcedMode = params.get('mode') as Mode | null
 /** Debug: hide the HUD (for screenshots). */
 const noHud = params.has('nohud')
 
@@ -24,7 +32,7 @@ type Screen = 'title' | 'playing' | 'paused' | 'over'
 
 const PROFILE_HINTS: Record<ProfileName, string> = {
   chill: 'Keeps to the limit, leaves long gaps, changes lanes only when it really pays. Police leave you alone.',
-  standard: 'A little over the limit, passes slower traffic and moves back right. Speed cameras may notice.',
+  standard: 'A little over the limit, passes slower traffic and moves back right. Stays just under the speed cameras.',
   hurry: 'Well over the limit with tight gaps and quick lane changes. Expect a pursuit.',
   pursuit: 'Flat out. Threads traffic, uses the shoulder, steers around spikes, roadblocks and rams.',
 }
@@ -64,7 +72,7 @@ const hud = new Hud()
 const apScreen = new AutopilotScreen(document.querySelector<HTMLCanvasElement>('#ap-screen')!)
 let audio: AutoAudio | null = null
 let screen: Screen = 'title'
-let sim: SimState
+let sim!: SimState
 let ap = new Autopilot()
 let accumulator = 0
 let last = performance.now()
@@ -127,12 +135,14 @@ refreshSetup()
 
 function start(): void {
   ensureAudio()
+  if (forcedProfile && forcedProfile in PROFILES) save.profile = forcedProfile
+  if (forcedMode === 'pursuit' || forcedMode === 'cruise') save.mode = forcedMode
   newRun(save.mode, save.profile, true)
   if (debugHeat && save.mode === 'pursuit') {
     startPursuit(sim)
     sim.heat = debugHeat
   }
-  view.rig.mode = 'chase'
+  view.rig.mode = (CAMERA_MODES as string[]).includes(startCam ?? '') ? (startCam as CameraMode) : 'chase'
   view.rig.cut()
   setScreen('playing')
   hud.showBanner(save.mode === 'pursuit' ? 'HOT PURSUIT' : 'FREE DRIVE', `AUTOPILOT · ${PROFILES[save.profile].label}`, 'blue', 2.2)
@@ -310,7 +320,7 @@ function command(dt: number): DriveCommand {
   const e = sim.ego
   const playing = screen === 'playing'
   if (playing && ap.engaged) {
-    if (input.brake > 0.1 || (input.takeOver && !input.touchSteering())) {
+    if (input.brake > 0.1 || input.takeOver) {
       disengage(true)
       hud.popup('AUTOPILOT DISENGAGED')
     }
@@ -387,8 +397,18 @@ function frame(now: number): void {
   }
 }
 
+if (debug) {
+  // Console / automation access: autopursuit.sim, autopursuit.ap.
+  Object.defineProperty(window, 'autopursuit', { value: { get sim() { return sim }, get ap() { return ap }, get screen() { return screen } } })
+}
+
 if (demo) {
   start()
+  for (let i = 0; i < fastForward / STEP; i++) {
+    sim.autopilot = ap.engaged
+    step(sim, ap.step(sim) ?? { accel: 0, steer: 0 })
+    sim.events.length = 0
+  }
 } else {
   toTitle()
 }

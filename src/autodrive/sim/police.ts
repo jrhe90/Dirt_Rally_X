@@ -30,14 +30,17 @@ export function startPursuit(sim: SimState): void {
   sim.cooldown = 0
   sim.nextSpikes = sim.ego.s + 900
   sim.nextRoadblock = sim.ego.s + 1500
+  sim.pursuitStart = sim.t
+  // The unit that spotted you is already on your tail.
+  spawnInterceptor(sim, true, 120)
   sim.events.push({ type: 'pursuit' })
   sim.events.push({ type: 'heat', level: heatLevel(sim) })
 }
 
-function spawnInterceptor(sim: SimState, behind: boolean): void {
+function spawnInterceptor(sim: SimState, behind: boolean, distance = 0): void {
   const e = sim.ego
   const lane = Math.floor(nextRandom(sim) * LANES)
-  const s = behind ? e.s - randomRange(sim, 160, 240) : e.s + randomRange(sim, 300, 420)
+  const s = distance ? e.s - distance : behind ? e.s - randomRange(sim, 160, 240) : e.s + randomRange(sim, 300, 420)
   const d = laneCenter(lane)
   for (const a of sim.agents) if (a.role !== 'oncoming' && Math.abs(a.s - s) < 14 && Math.abs(a.d - d) < 3) return
   const cop = createAgent(sim, 'cop', 'cop', s, lane, behind ? Math.max(30, e.v + 6) : Math.max(18, e.v * 0.6))
@@ -70,7 +73,7 @@ export function maintainPolice(sim: SimState): void {
   if (!sim.pursuit) return
   const chasing = sim.agents.filter((a) => isChasing(a)).length
   const wanted = Math.min(5, 1 + heatLevel(sim))
-  if (chasing < wanted && nextRandom(sim) < 0.02) spawnInterceptor(sim, nextRandom(sim) < 0.8)
+  if (chasing < wanted && nextRandom(sim) < 0.05) spawnInterceptor(sim, nextRandom(sim) < 0.8)
 
   const level = heatLevel(sim)
   if (level >= 2 && e.s > sim.nextSpikes) {
@@ -112,13 +115,13 @@ function deployRoadblock(sim: SimState): void {
     // Angled across the lane, nudged away from the gap so it stays drivable.
     const away = lane < gapLane ? 1 : -1
     cop.d = laneCenter(lane) + away * 0.35
-    if (lane === LANES) cop.d = -(ROAD_EDGE - 1.6)
+    if (lane === LANES) cop.d = -(ROAD_EDGE - 0.9)
     cop.psi = (lane % 2 ? 1 : -1) * 0.55
     cop.copState = 'parked'
     sim.agents.push(cop)
   }
-  // Clear civilian traffic out of the way so the block is readable.
-  sim.agents = sim.agents.filter((a) => a.role !== 'traffic' || Math.abs(a.s - s) > 25)
+  // Clear civilian traffic from the approach so the block is a choice of gaps, not a jam.
+  sim.agents = sim.agents.filter((a) => a.role !== 'traffic' || a.s < e.s + 40 || a.s > s + 40)
   sim.roadblocks.push({ s, gapLane, passed: false })
   sim.events.push({ type: 'roadblock' })
 }
@@ -272,7 +275,8 @@ export function stepPolice(sim: SimState, bodies: readonly Body[], dt: number): 
   }
 
   // Escape: keep every interceptor beyond reach for long enough.
-  if (nearest > POLICE.escapeDistance) {
+  // No escaping before the chase has properly begun.
+  if (nearest > POLICE.escapeDistance && sim.t - sim.pursuitStart > 15) {
     sim.cooldown += dt
     if (sim.cooldown >= POLICE.escapeTime) escape(sim)
   } else {

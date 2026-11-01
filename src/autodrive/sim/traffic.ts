@@ -224,6 +224,8 @@ function spawnCivilian(sim: SimState, s: number, lane: number, role: Role): bool
   const v = randomRange(sim, spec.speed[0], spec.speed[1]) + laneBoost
   const d = role === 'oncoming' ? oncomingLaneCenter(lane) : laneCenter(lane)
   if (!clearAt(sim, s, d, role, 30 + v * 0.6)) return false
+  // Police have closed the road ahead of a roadblock.
+  if (role === 'traffic' && sim.roadblocks.some((r) => !r.passed && s > r.s - 480 && s < r.s + 40)) return false
   const a = createAgent(sim, role, kind, s, lane, v)
   a.aggressive = role === 'traffic' && nextRandom(sim) < 0.08
   if (a.aggressive) a.desiredV += 4

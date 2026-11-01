@@ -115,6 +115,7 @@ export type SimState = {
   /** 0..5; the integer part is the heat level. */
   heat: number
   pursuit: boolean
+  pursuitStart: number
   /** 0..1, busted at 1. */
   bust: number
   /** Seconds spent out of the cops' reach, counting toward an escape. */

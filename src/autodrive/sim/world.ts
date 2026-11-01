@@ -26,6 +26,7 @@ export function createSim(seed: number, mode: Mode): SimState {
     nextId: 1,
     heat: 0,
     pursuit: false,
+    pursuitStart: 0,
     bust: 0,
     cooldown: 0,
     bounty: 0,

@@ -91,9 +91,13 @@ kbd { display: inline-block; min-width: 1.5em; padding: 0.05em 0.35em; border: 1
 @media (pointer: coarse) {
   .touch { display: block; }
   .hints { display: none; }
-  .ap-panel { width: min(300px, 40vw); bottom: auto; top: max(10px, env(safe-area-inset-top)); left: auto; right: max(10px, env(safe-area-inset-right)); }
-  #ap-screen { height: min(150px, 22vh); }
-  .speedo { bottom: auto; top: calc(max(10px, env(safe-area-inset-top)) + min(230px, 34vh)); transform: scale(0.72); transform-origin: top right; }
+  .ap-panel { width: min(280px, 36vw); bottom: auto; top: max(10px, env(safe-area-inset-top)); left: auto; right: max(10px, env(safe-area-inset-right)); }
+  .ap-head { padding: 6px 10px 5px; gap: 8px; }
+  .ap-reason { padding: 6px 10px 7px; font-size: 12px; min-height: 0; }
+  #ap-screen { height: min(130px, 26vh); }
+  .speedo { right: auto; bottom: auto; left: 50%; top: max(4px, env(safe-area-inset-top)); transform: translateX(-50%) scale(0.6); transform-origin: top center; }
+  .damage { display: none; }
+  .feed { top: 34%; }
   .hud-bounty { transform: skewX(-8deg) scale(0.8); transform-origin: top left; }
 }
 .touch button { pointer-events: auto; border: 1px solid rgba(255,255,255,0.25); background: rgba(10,12,16,0.45); color: var(--ink); font: italic 800 20px/1 var(--display); letter-spacing: 0.06em; border-radius: 14px; backdrop-filter: blur(4px); }

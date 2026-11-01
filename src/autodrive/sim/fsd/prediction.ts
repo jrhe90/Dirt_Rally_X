@@ -33,7 +33,9 @@ export function predict(tracks: Iterable<Track>, spikes: readonly DetectedSpikes
   const egoHalfW = ego.width / 2
   for (const t of tracks) {
     if (t.kind === 'oncoming') continue
-    if (t.s - ego.s > 240 || t.s - ego.s < -90) continue
+    // Stopped things matter from further away: at 250 km/h the car covers 280 m in four seconds.
+    const slow = Math.abs(t.vs) < 3
+    if (t.s - ego.s > (slow ? 290 : 240) || t.s - ego.s < -90) continue
     const s = new Float64Array(n)
     const d = new Float64Array(n)
     const fake = { id: t.id, s: t.s, d: t.d, v: t.vs, psi: t.psi, length: t.length, width: t.width }
