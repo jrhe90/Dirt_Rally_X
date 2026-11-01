@@ -24,3 +24,4 @@ dist-ssr
 *.sw?
 .cache
 g2pW
+scripts/.dev
